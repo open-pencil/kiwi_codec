@@ -1,6 +1,9 @@
-Mix.install([
-  {:kiwi_codec, path: Path.expand("..", __DIR__)}
-])
+Mix.install(
+  [
+    {:kiwi_codec, path: Path.expand("..", __DIR__)}
+  ],
+  consolidate_protocols: false
+)
 
 defmodule BenchSchema.Kind do
   use KiwiCodec, kind: :enum

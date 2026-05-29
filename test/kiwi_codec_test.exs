@@ -39,6 +39,12 @@ defmodule KiwiCodecTest do
     assert node |> KiwiCodec.encode() |> KiwiCodec.decode(Node) == node
   end
 
+  test "round-trips IEEE float sentinels" do
+    point = %Point{x: :infinity, y: :negative_infinity}
+
+    assert point |> KiwiCodec.encode() |> KiwiCodec.decode(Point) == point
+  end
+
   test "skips nil message fields" do
     assert KiwiCodec.encode(%Node{id: 1}) == <<1, 1, 0>>
   end

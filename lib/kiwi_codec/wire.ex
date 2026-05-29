@@ -9,7 +9,11 @@ defmodule KiwiCodec.Wire do
   def encode(:bool, true), do: <<1>>
   def encode(:bool, false), do: <<0>>
   def encode(:byte, value) when is_integer(value) and value in 0..255, do: <<value>>
-  def encode(:float, value) when is_number(value), do: Float.encode_varfloat(value)
+
+  def encode(:float, value)
+      when is_number(value) or value in [:infinity, :negative_infinity, :nan],
+      do: Float.encode_varfloat(value)
+
   def encode(:int, value), do: Varint.encode_int(value)
   def encode(:int64, value), do: Varint.encode_int64(value)
   def encode(:string, value) when is_binary(value), do: [value, 0]

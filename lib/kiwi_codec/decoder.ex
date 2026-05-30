@@ -40,10 +40,14 @@ defmodule KiwiCodec.Decoder do
   end
 
   defp decode_struct(binary, struct, %MessageProps{ordered_fields: fields}) do
-    Enum.reduce(fields, {struct, binary}, fn field, {acc, rest} ->
-      {value, tail} = decode_field_value(rest, field, struct.__struct__)
-      {Map.put(acc, field.name, value), tail}
-    end)
+    decode_struct_fields(fields, struct, binary, struct.__struct__)
+  end
+
+  defp decode_struct_fields([], struct, binary, _module), do: {struct, binary}
+
+  defp decode_struct_fields([field | fields], struct, binary, module) do
+    {value, rest} = decode_field_value(binary, field, module)
+    decode_struct_fields(fields, Map.put(struct, field.name, value), rest, module)
   end
 
   defp decode_field_value(binary, %FieldProps{} = field, module) do

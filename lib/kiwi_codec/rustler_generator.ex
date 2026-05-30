@@ -16,7 +16,7 @@ defmodule KiwiCodec.RustlerGenerator do
     "float" => "read_var_float(env)",
     "int" => "read_var_int()",
     "int64" => "read_var_int64()",
-    "string" => "read_string()",
+    "string" => "read_string(env)",
     "uint" => "read_var_uint()",
     "uint64" => "read_var_uint64()"
   }
@@ -85,7 +85,7 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp definition_code(%Definition{kind: :enum} = definition, _module_prefix, _definition_map) do
-    arms = Enum.map(definition.fields, &enum_arm/1)
+    arms = definition.fields |> Enum.with_index() |> Enum.map(&enum_arm/1)
 
     """
     fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
@@ -137,8 +137,8 @@ defmodule KiwiCodec.RustlerGenerator do
     """
   end
 
-  defp enum_arm(field) do
-    "#{field.value} => Ok(Atom::from_str(env, #{rust_string(field_name(field.name))})?.encode(env)),"
+  defp enum_arm({field, index}) do
+    "#{field.value} => { static ATOM_#{index}: OnceLock<Atom> = OnceLock::new(); Ok(cached_atom(env, &ATOM_#{index}, #{rust_string(field_name(field.name))}).encode(env)) },"
   end
 
   defp struct_field_decode(field, definition_map) do

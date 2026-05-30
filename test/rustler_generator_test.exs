@@ -4,9 +4,18 @@ defmodule KiwiCodec.RustlerGeneratorTest do
   test "renders struct decoder and entrypoint into Rust template" do
     schema =
       KiwiCodec.parse_schema!("""
+      enum Kind {
+        Rectangle = 1;
+      }
+
       struct Point {
         float x;
         float y;
+      }
+
+      struct Node {
+        Kind kind;
+        Point position;
       }
       """)
 
@@ -32,8 +41,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     """)
 
     KiwiCodec.RustlerGenerator.render!(schema,
-      definitions: ["Point"],
-      entrypoints: [decode_point: "Point"],
+      definitions: ["Node"],
+      entrypoints: [decode_node: "Node"],
       module_prefix: "Example.Schema",
       template: template,
       out: out
@@ -41,10 +50,12 @@ defmodule KiwiCodec.RustlerGeneratorTest do
 
     generated = File.read!(out)
 
+    assert generated =~ "fn decode_node_from_decoder"
     assert generated =~ "fn decode_point_from_decoder"
-    assert generated =~ "pub fn decode_point"
-    assert generated =~ ~s("Elixir.Example.Schema.Point")
-    assert generated =~ "decoder.read_var_float_value()?"
+    assert generated =~ "fn decode_kind_from_decoder"
+    assert generated =~ "pub fn decode_node"
+    assert generated =~ ~s("Elixir.Example.Schema.Node")
+    assert generated =~ "decoder.read_var_float(env)?"
     refute generated =~ "kiwi_codegen"
   end
 end

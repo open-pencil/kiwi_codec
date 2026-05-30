@@ -11,14 +11,14 @@ defmodule KiwiCodec.RustlerGenerator do
   alias KiwiCodec.Schema.Definition
 
   @primitive_decoders %{
-    "bool" => "read_bool",
-    "byte" => "read_byte",
-    "float" => "read_var_float_value",
-    "int" => "read_var_int",
-    "int64" => "read_var_int64",
-    "string" => "read_string",
-    "uint" => "read_var_uint",
-    "uint64" => "read_var_uint64"
+    "bool" => "read_bool()",
+    "byte" => "read_byte()",
+    "float" => "read_var_float(env)",
+    "int" => "read_var_int()",
+    "int64" => "read_var_int64()",
+    "string" => "read_string()",
+    "uint" => "read_var_uint()",
+    "uint64" => "read_var_uint64()"
   }
 
   @type entrypoint :: {atom() | String.t(), String.t()}
@@ -26,9 +26,9 @@ defmodule KiwiCodec.RustlerGenerator do
   @doc """
   Renders a Rust template with generated Kiwi decoder replacements.
 
-  Currently generates native decoders for struct definitions with primitive
-  fields. This is enough to validate the template pipeline and Rustler term
-  construction before expanding to messages and nested schema types.
+  Generates native decoders for enums and structs. Message generation is left
+  for the next slice because message defaults/unknown-field behavior need a bit
+  more design.
   """
   @spec render!(Schema.t(), keyword()) :: Path.t()
   def render!(%Schema{} = schema, opts) do
@@ -38,34 +38,69 @@ defmodule KiwiCodec.RustlerGenerator do
     template = Keyword.fetch!(opts, :template)
     out = Keyword.fetch!(opts, :out)
 
-    selected = select_definitions(schema, definitions)
+    definition_map = Map.new(schema.definitions, &{&1.name, &1})
+    selected = select_definitions(schema, definitions, definition_map)
 
     KiwiCodec.RustTemplate.render!(
       template,
       out,
       [
-        {"kiwi_codegen::definitions", definitions_code(selected, module_prefix)},
+        {"kiwi_codegen::definitions", definitions_code(selected, module_prefix, definition_map)},
         {"kiwi_codegen::entrypoints", entrypoints_code(entrypoints)}
       ]
     )
   end
 
-  defp select_definitions(%Schema{} = schema, []), do: schema.definitions
+  defp select_definitions(%Schema{} = schema, [], _definition_map), do: schema.definitions
 
-  defp select_definitions(%Schema{} = schema, names) do
-    names = MapSet.new(Enum.map(names, &to_string/1))
-    Enum.filter(schema.definitions, &MapSet.member?(names, &1.name))
+  defp select_definitions(%Schema{} = schema, names, definition_map) do
+    names
+    |> Enum.map(&to_string/1)
+    |> include_dependencies(definition_map, MapSet.new())
+    |> then(fn selected_names ->
+      Enum.filter(schema.definitions, &MapSet.member?(selected_names, &1.name))
+    end)
   end
 
-  defp definitions_code(definitions, module_prefix) do
+  defp include_dependencies([], _definition_map, acc), do: acc
+
+  defp include_dependencies([name | names], definition_map, acc) do
+    if MapSet.member?(acc, name) do
+      include_dependencies(names, definition_map, acc)
+    else
+      definition = Map.fetch!(definition_map, name)
+
+      dependencies =
+        definition.fields
+        |> Enum.map(& &1.type)
+        |> Enum.filter(&Map.has_key?(definition_map, &1))
+
+      include_dependencies(names ++ dependencies, definition_map, MapSet.put(acc, name))
+    end
+  end
+
+  defp definitions_code(definitions, module_prefix, definition_map) do
     definitions
-    |> Enum.map(&definition_code(&1, module_prefix))
+    |> Enum.map(&definition_code(&1, module_prefix, definition_map))
     |> Enum.reject(&(&1 == nil))
     |> Enum.join("\n\n")
   end
 
-  defp definition_code(%Definition{kind: :struct} = definition, module_prefix) do
-    fields = Enum.map(definition.fields, &struct_field_decode/1)
+  defp definition_code(%Definition{kind: :enum} = definition, _module_prefix, _definition_map) do
+    arms = Enum.map(definition.fields, &enum_arm/1)
+
+    """
+    fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        match decoder.read_var_uint()? {
+    #{indent(arms, 8)}
+            value => Ok((value as i64).encode(env)),
+        }
+    }
+    """
+  end
+
+  defp definition_code(%Definition{kind: :struct} = definition, module_prefix, definition_map) do
+    fields = Enum.map(definition.fields, &struct_field_decode(&1, definition_map))
 
     """
     fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
@@ -76,23 +111,34 @@ defmodule KiwiCodec.RustlerGenerator do
     """
   end
 
-  defp definition_code(_definition, _module_prefix), do: nil
+  defp definition_code(_definition, _module_prefix, _definition_map), do: nil
 
-  defp struct_field_decode(field) do
-    decoder = Map.fetch!(@primitive_decoders, field.type)
+  defp enum_arm(field) do
+    "#{field.value} => Ok(Atom::from_str(env, #{rust_string(field_name(field.name))})?.encode(env)),"
+  end
+
+  defp struct_field_decode(field, definition_map) do
     field_name = field_name(field.name)
-
-    value =
-      if field.array? do
-        "decoder.read_repeated(|decoder| decoder.#{decoder}())?"
-      else
-        "decoder.#{decoder}()?"
-      end
+    value = field_value(field, definition_map)
 
     """
     let value = #{value};
     term = term.map_put(Atom::from_str(env, #{rust_string(field_name)})?, value)?;
     """
+  end
+
+  defp field_value(%{array?: true} = field, definition_map) do
+    "decoder.read_repeated(|decoder| #{field_value(%{field | array?: false}, definition_map)})?"
+  end
+
+  defp field_value(field, definition_map) do
+    cond do
+      primitive = @primitive_decoders[field.type] ->
+        "decoder.#{primitive}?"
+
+      definition = definition_map[field.type] ->
+        "#{decoder_name(definition.name)}_from_decoder(env, decoder)?"
+    end
   end
 
   defp entrypoints_code(entrypoints) do

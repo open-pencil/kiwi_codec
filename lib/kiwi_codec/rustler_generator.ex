@@ -102,9 +102,14 @@ defmodule KiwiCodec.RustlerGenerator do
 
     """
     fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
-        let mut term = rustler::types::elixir_struct::make_ex_struct(env, #{rust_string(module_name(module_prefix, definition.name))})?;
+        static MODULE_ATOM: OnceLock<Atom> = OnceLock::new();
+        static STRUCT_KEYS: OnceLock<Vec<rustler::wrapper::NIF_TERM>> = OnceLock::new();
+        let module_atom = cached_atom(env, &MODULE_ATOM, #{rust_string(module_name(module_prefix, definition.name))});
+        let keys = cached_struct_keys(env, &STRUCT_KEYS, &[#{field_names(definition.fields)}]);
+        let mut values = Vec::with_capacity(keys.len());
+        values.push(module_atom.as_c_arg());
     #{indent(fields, 4)}
-        Ok(term)
+        make_struct(env, keys, &values)
     }
     """
   end
@@ -116,10 +121,10 @@ defmodule KiwiCodec.RustlerGenerator do
     """
     fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
         static MODULE_ATOM: OnceLock<Atom> = OnceLock::new();
-        static FIELD_ATOMS: OnceLock<Vec<Atom>> = OnceLock::new();
+        static STRUCT_KEYS: OnceLock<Vec<rustler::wrapper::NIF_TERM>> = OnceLock::new();
         let module_atom = cached_atom(env, &MODULE_ATOM, #{rust_string(module_name(module_prefix, definition.name))});
-        let field_atoms = cached_atoms(env, &FIELD_ATOMS, &[#{field_names(definition.fields)}]);
-        let mut values = default_values(env, field_atoms.len());
+        let keys = cached_struct_keys(env, &STRUCT_KEYS, &[#{field_names(definition.fields)}]);
+        let mut values = default_values(module_atom, keys.len() - 1);
         loop {
             match decoder.read_var_uint()? {
                 0 => break,
@@ -127,7 +132,7 @@ defmodule KiwiCodec.RustlerGenerator do
                 field => return Err(Error::Term(Box::new(format!("unknown field {} while decoding #{definition.name}", field)))),
             }
         }
-        make_struct(env, module_atom, field_atoms, &values)
+        make_struct(env, keys, &values)
     }
     """
   end
@@ -137,12 +142,11 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp struct_field_decode(field, definition_map) do
-    field_name = field_name(field.name)
     value = field_value(field, definition_map)
 
     """
     let value = #{value};
-    term = term.map_put(Atom::from_str(env, #{rust_string(field_name)})?, value)?;
+    values.push(value.encode(env).as_c_arg());
     """
   end
 
@@ -152,7 +156,7 @@ defmodule KiwiCodec.RustlerGenerator do
     """
     #{field.value} => {
         let value = #{value};
-        values[#{index}] = value.encode(env);
+        values[#{index + 1}] = value.encode(env).as_c_arg();
     }
     """
   end

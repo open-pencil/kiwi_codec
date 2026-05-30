@@ -110,11 +110,13 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp definition_code(%Definition{kind: :message} = definition, module_prefix, definition_map) do
+    defaults = Enum.map(definition.fields, &message_field_default/1)
     fields = Enum.map(definition.fields, &message_field_arm(&1, definition_map))
 
     """
     fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
         let mut term = rustler::types::elixir_struct::make_ex_struct(env, #{rust_string(module_name(module_prefix, definition.name))})?;
+    #{indent(defaults, 4)}
         loop {
             match decoder.read_var_uint()? {
                 0 => break,
@@ -129,6 +131,10 @@ defmodule KiwiCodec.RustlerGenerator do
 
   defp enum_arm(field) do
     "#{field.value} => Ok(Atom::from_str(env, #{rust_string(field_name(field.name))})?.encode(env)),"
+  end
+
+  defp message_field_default(field) do
+    "term = term.map_put(Atom::from_str(env, #{rust_string(field_name(field.name))})?, rustler::types::atom::nil())?;"
   end
 
   defp struct_field_decode(field, definition_map) do
@@ -158,16 +164,18 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp field_value(%{array?: true} = field, definition_map) do
-    "decoder.read_repeated(|decoder| #{field_value(%{field | array?: false}, definition_map)})?"
+    "decoder.read_repeated(|decoder| #{field_result(%{field | array?: false}, definition_map)})?"
   end
 
-  defp field_value(field, definition_map) do
+  defp field_value(field, definition_map), do: "#{field_result(field, definition_map)}?"
+
+  defp field_result(field, definition_map) do
     cond do
       primitive = @primitive_decoders[field.type] ->
-        "decoder.#{primitive}?"
+        "decoder.#{primitive}"
 
       definition = definition_map[field.type] ->
-        "#{decoder_name(definition.name)}_from_decoder(env, decoder)?"
+        "#{decoder_name(definition.name)}_from_decoder(env, decoder)"
     end
   end
 

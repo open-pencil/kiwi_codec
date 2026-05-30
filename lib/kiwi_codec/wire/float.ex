@@ -29,19 +29,24 @@ defmodule KiwiCodec.Wire.Float do
 
   def decode_varfloat(<<bits::32-little, rest::binary>>) do
     raw = (bits <<< 23 ||| bits >>> 9) &&& @uint32_mask
-    {decode_float_bits(<<raw::32-little>>), rest}
+
+    value =
+      case raw do
+        0x7F80_0000 -> :infinity
+        0xFF80_0000 -> :negative_infinity
+        0x7FC0_0000 -> :nan
+        _ -> decode_float_bits(raw)
+      end
+
+    {value, rest}
   end
 
   def decode_varfloat(_binary) do
     raise KiwiCodec.DecodeError, message: "cannot decode varfloat"
   end
 
-  defp decode_float_bits(<<0, 0, 128, 127>>), do: :infinity
-  defp decode_float_bits(<<0, 0, 128, 255>>), do: :negative_infinity
-  defp decode_float_bits(<<0, 0, 192, 127>>), do: :nan
-
-  defp decode_float_bits(bits) do
-    <<value::float-32-little>> = bits
+  defp decode_float_bits(raw) do
+    <<value::float-32-little>> = <<raw::32-little>>
     value
   end
 end

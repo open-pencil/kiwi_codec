@@ -48,7 +48,7 @@ defmodule KiwiCodec.Wire do
     {length, rest} = Varint.decode_uint(binary)
 
     case rest do
-      <<value::binary-size(length), tail::binary>> -> {value, tail}
+      <<value::binary-size(^length), tail::binary>> -> {value, tail}
       _ -> raise KiwiCodec.DecodeError, message: "cannot decode byte array"
     end
   end
@@ -56,7 +56,7 @@ defmodule KiwiCodec.Wire do
   defp decode_string(binary) do
     case :binary.match(binary, <<0>>) do
       {index, 1} ->
-        <<value::binary-size(index), 0, rest::binary>> = binary
+        <<value::binary-size(^index), 0, rest::binary>> = binary
 
         if String.valid?(value) do
           {value, rest}

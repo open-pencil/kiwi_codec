@@ -13,7 +13,7 @@ defmodule KiwiCodec.Container do
     magic_size = byte_size(magic)
 
     case binary do
-      <<^magic::binary-size(magic_size), version::32-little, rest::binary>> ->
+      <<^magic::binary-size(^magic_size), version::32-little, rest::binary>> ->
         %{magic: magic, version: version, chunks: parse_chunks(rest, [])}
 
       _ ->

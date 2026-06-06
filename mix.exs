@@ -8,15 +8,12 @@ defmodule KiwiCodec.MixProject do
     [
       app: :kiwi_codec,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.19",
       consolidate_protocols: Mix.env() != :test,
       start_permanent: Mix.env() == :prod,
       description: "Pure Elixir codec for Kiwi schema binary messages",
       aliases: aliases(),
-      dialyzer: [
-        plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
-        plt_add_apps: [:mix]
-      ],
+      dialyzer: [plt_add_apps: [:mix], flags: [:no_opaque]],
       package: package(),
       docs: docs(),
       deps: deps()

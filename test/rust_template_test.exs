@@ -1,7 +1,7 @@
 defmodule KiwiCodec.RustTemplateTest do
   use ExUnit.Case, async: true
 
-  test "replaces item, statement, and expression macro markers" do
+  test "renders RustQ item splice markers" do
     dir =
       Path.join(
         System.tmp_dir!(),
@@ -16,12 +16,7 @@ defmodule KiwiCodec.RustTemplateTest do
 
     File.write!(template, """
     mod generated {
-        kiwi_codegen::items!();
-    }
-
-    fn answer() -> i32 {
-        kiwi_codegen::statements!();
-        kiwi_codegen::expr!()
+        __rq_items!();
     }
     """)
 
@@ -29,17 +24,13 @@ defmodule KiwiCodec.RustTemplateTest do
       template,
       out,
       [
-        {"kiwi_codegen::items", "pub fn generated() -> i32 { 1 }"},
-        {"kiwi_codegen::statements", "let base = 40;\nlet extra = 2;"},
-        {"kiwi_codegen::expr", "base + extra"}
+        {:items, "pub fn generated() -> i32 { 1 }"}
       ]
     )
 
     generated = File.read!(out)
 
     assert generated =~ "pub fn generated() -> i32"
-    assert generated =~ "let base = 40;"
-    assert generated =~ "base + extra"
-    refute generated =~ "kiwi_codegen"
+    refute generated =~ "__rq_items"
   end
 end

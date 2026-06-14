@@ -45,6 +45,7 @@ defmodule KiwiCodec.MixProject do
 
   defp deps do
     [
+      rustq_dep(),
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
@@ -52,6 +53,14 @@ defmodule KiwiCodec.MixProject do
       {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
+  end
+
+  defp rustq_dep do
+    if File.dir?("../rustq") do
+      {:rustq, "~> 0.4", path: "../rustq", runtime: false}
+    else
+      {:rustq, github: "dannote/rustq", branch: "master", runtime: false}
+    end
   end
 
   defp package do

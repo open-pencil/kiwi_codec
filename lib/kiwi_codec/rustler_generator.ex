@@ -30,23 +30,36 @@ defmodule KiwiCodec.RustlerGenerator do
   """
   @spec render!(Schema.t(), keyword()) :: Path.t()
   def render!(%Schema{} = schema, opts) do
+    template = Keyword.fetch!(opts, :template)
+    out = Keyword.fetch!(opts, :out)
+
+    KiwiCodec.RustTemplate.render!(template, out, replacements(schema, opts))
+  end
+
+  @doc """
+  Renders a Rust template with generated Kiwi decoder replacements and returns source.
+
+  Accepts the same options as `render!/2`, except `:out` is not required.
+  """
+  @spec render_source!(Schema.t(), keyword()) :: String.t()
+  def render_source!(%Schema{} = schema, opts) do
+    template = Keyword.fetch!(opts, :template)
+
+    KiwiCodec.RustTemplate.render_source!(template, replacements(schema, opts))
+  end
+
+  defp replacements(%Schema{} = schema, opts) do
     definitions = Keyword.get(opts, :definitions, [])
     entrypoints = Keyword.get(opts, :entrypoints, [])
     module_prefix = Keyword.fetch!(opts, :module_prefix)
-    template = Keyword.fetch!(opts, :template)
-    out = Keyword.fetch!(opts, :out)
 
     definition_map = Map.new(schema.definitions, &{&1.name, &1})
     selected = select_definitions(schema, definitions, definition_map)
 
-    KiwiCodec.RustTemplate.render!(
-      template,
-      out,
-      [
-        {"kiwi_codegen::definitions", definitions_code(selected, module_prefix, definition_map)},
-        {"kiwi_codegen::entrypoints", entrypoints_code(entrypoints)}
-      ]
-    )
+    [
+      {:definitions, definition_fragments(selected, module_prefix, definition_map)},
+      {:entrypoints, entrypoint_fragments(entrypoints)}
+    ]
   end
 
   defp select_definitions(%Schema{} = schema, [], _definition_map), do: schema.definitions
@@ -77,11 +90,17 @@ defmodule KiwiCodec.RustlerGenerator do
     end
   end
 
-  defp definitions_code(definitions, module_prefix, definition_map) do
+  defp definition_fragments(definitions, module_prefix, definition_map) do
     definitions
-    |> Enum.map(&definition_code(&1, module_prefix, definition_map))
+    |> Enum.map(&definition_fragment(&1, module_prefix, definition_map))
     |> Enum.reject(&(&1 == nil))
-    |> Enum.join("\n\n")
+    |> Enum.map(&fragment_code/1)
+  end
+
+  defp definition_fragment(definition, module_prefix, definition_map) do
+    definition
+    |> definition_code(module_prefix, definition_map)
+    |> rust_item_fragment()
   end
 
   defp definition_code(%Definition{kind: :enum} = definition, _module_prefix, _definition_map) do
@@ -181,8 +200,8 @@ defmodule KiwiCodec.RustlerGenerator do
     end
   end
 
-  defp entrypoints_code(entrypoints) do
-    Enum.map_join(entrypoints, "\n\n", fn {nif_name, definition_name} ->
+  defp entrypoint_fragments(entrypoints) do
+    Enum.map(entrypoints, fn {nif_name, definition_name} ->
       """
       #[rustler::nif(schedule = "DirtyCpu")]
       pub fn #{nif_name}<'a>(env: Env<'a>, bytes: Binary<'a>) -> NifResult<Term<'a>> {
@@ -192,7 +211,17 @@ defmodule KiwiCodec.RustlerGenerator do
           Ok(term)
       }
       """
+      |> rust_item_fragment()
+      |> fragment_code()
     end)
+  end
+
+  defp rust_item_fragment(code) do
+    RustQ.parse_fragment!(:item, code)
+  end
+
+  defp fragment_code(fragment) do
+    RustQ.Rust.to_fragment(fragment)
   end
 
   defp decoder_name(name), do: "decode_#{rust_ident(name)}"

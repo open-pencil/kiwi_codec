@@ -42,8 +42,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     use rustler::types::atom::Atom;
     use crate::runtime::Decoder;
 
-    kiwi_codegen::definitions!();
-    kiwi_codegen::entrypoints!();
+    __rq_definitions!();
+    __rq_entrypoints!();
     """)
 
     KiwiCodec.RustlerGenerator.render!(schema,
@@ -56,6 +56,15 @@ defmodule KiwiCodec.RustlerGeneratorTest do
 
     generated = File.read!(out)
 
+    generated_source =
+      KiwiCodec.RustlerGenerator.render_source!(schema,
+        definitions: ["Node", "Image"],
+        entrypoints: [decode_node: "Node", decode_image: "Image"],
+        module_prefix: "Example.Schema",
+        template: template
+      )
+
+    assert generated_source == generated
     assert generated =~ "fn decode_node_from_decoder"
     assert generated =~ "fn decode_point_from_decoder"
     assert generated =~ "fn decode_kind_from_decoder"
@@ -66,6 +75,6 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "decoder.read_var_float(env)?"
     assert generated =~ "decoder.read_byte_array(env)?"
     assert generated =~ "match decoder.read_var_uint()?"
-    refute generated =~ "kiwi_codegen"
+    refute generated =~ "__rq_"
   end
 end

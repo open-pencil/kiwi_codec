@@ -59,7 +59,7 @@ defmodule KiwiCodec.RustlerGenerator do
     [
       {:definitions, definition_fragments(selected, module_prefix, definition_map)},
       {:entrypoints, entrypoint_fragments(entrypoints)}
-    ]
+    ] ++ Keyword.get(opts, :extra_splices, [])
   end
 
   defp select_definitions(%Schema{} = schema, [], _definition_map), do: schema.definitions

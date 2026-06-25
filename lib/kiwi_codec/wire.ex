@@ -1,5 +1,10 @@
 defmodule KiwiCodec.Wire do
-  @moduledoc false
+  @moduledoc """
+  Kiwi primitive wire encoders and decoders.
+
+  Functions return `{value, rest}` when decoding so higher-level decoders can
+  compose primitive, struct, message, and repeated-field decoding.
+  """
 
   alias KiwiCodec.Wire.{Float, Varint}
 

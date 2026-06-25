@@ -1,5 +1,7 @@
 defmodule KiwiCodec.FieldProps do
-  @moduledoc false
+  @moduledoc """
+  Metadata for one Kiwi field in a generated module.
+  """
 
   @type t :: %__MODULE__{
           id: pos_integer() | nil,

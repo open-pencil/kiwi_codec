@@ -1,5 +1,7 @@
 defmodule KiwiCodec.Inspect do
-  @moduledoc false
+  @moduledoc """
+  Shared `Inspect` implementation for generated Kiwi structs.
+  """
 
   import Inspect.Algebra
 

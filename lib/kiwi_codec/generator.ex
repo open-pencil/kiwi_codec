@@ -37,10 +37,11 @@ defmodule KiwiCodec.Generator do
 
   defp module_ast(%Definition{kind: :enum} = definition, _schema, _prefix, module) do
     values = Enum.map(definition.fields, &enum_value_ast/1)
+    moduledoc = generated_moduledoc(definition)
 
     quote do
       defmodule unquote(module) do
-        @moduledoc false
+        @moduledoc unquote(moduledoc)
 
         use KiwiCodec, kind: :enum
 
@@ -51,16 +52,21 @@ defmodule KiwiCodec.Generator do
 
   defp module_ast(%Definition{} = definition, schema, prefix, module) do
     fields = Enum.map(definition.fields, &field_ast(schema, &1, prefix))
+    moduledoc = generated_moduledoc(definition)
 
     quote do
       defmodule unquote(module) do
-        @moduledoc false
+        @moduledoc unquote(moduledoc)
 
         use KiwiCodec, kind: unquote(definition.kind)
 
         unquote_splicing(fields)
       end
     end
+  end
+
+  defp generated_moduledoc(%Definition{name: name, kind: kind}) do
+    "Generated Kiwi #{kind} module for `#{name}`."
   end
 
   defp enum_value_ast(field) do

@@ -1,5 +1,7 @@
 defmodule KiwiCodec.Wire.Varint do
-  @moduledoc false
+  @moduledoc """
+  Kiwi unsigned varint and zigzag signed integer encoding.
+  """
 
   import Bitwise
 

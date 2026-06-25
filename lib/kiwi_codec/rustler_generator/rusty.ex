@@ -1,5 +1,11 @@
 defmodule KiwiCodec.RustlerGenerator.Rusty do
-  @moduledoc false
+  @moduledoc """
+  Rusty-Elixir macro helpers used by `KiwiCodec.RustlerGenerator`.
+
+  These macros are package-internal metaprogramming helpers: they emit `defrust`
+  decoder functions while keeping control flow in Rusty-Elixir instead of raw
+  Rust source strings.
+  """
 
   defmacro struct_decoder(name, module_static, keys_static, module_name, key_names, field_exprs) do
     name = expand_arg!(name, __CALLER__)

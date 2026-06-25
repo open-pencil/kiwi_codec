@@ -3,6 +3,16 @@ defmodule KiwiCodec.Schema.Parser do
   Parser for `.kiwi` schema text.
   """
 
+  defmodule Token do
+    @moduledoc """
+    Source token with line and column information for schema parse errors.
+    """
+
+    @type t :: %__MODULE__{text: String.t(), line: pos_integer(), column: pos_integer()}
+
+    defstruct text: "", line: 1, column: 1
+  end
+
   alias KiwiCodec.Schema
   alias KiwiCodec.Schema.{Definition, Field}
 
@@ -21,18 +31,26 @@ defmodule KiwiCodec.Schema.Parser do
     {tokens, line, column} =
       Regex.split(@token_pattern, text, include_captures: true, trim: false)
       |> Enum.reduce({[], 1, 1}, fn part, {tokens, line, column} ->
-        token? = Regex.match?(@token_pattern, part) and not Regex.match?(~r/^(\/\/.*|\s+)$/, part)
+        token? = Regex.match?(@token_pattern, part)
+        ignored? = Regex.match?(~r/^(\/\/.*|\s+)$/, part)
 
         tokens =
-          if token? and part != "",
-            do: [%{text: part, line: line, column: column} | tokens],
-            else: tokens
+          cond do
+            part == "" or ignored? ->
+              tokens
+
+            token? ->
+              [%Token{text: part, line: line, column: column} | tokens]
+
+            true ->
+              parse_error!(%Token{text: part, line: line, column: column}, "unexpected input")
+          end
 
         {line, column} = advance_position(part, line, column)
         {tokens, line, column}
       end)
 
-    Enum.reverse([%{text: "", line: line, column: column} | tokens])
+    Enum.reverse([%Token{text: "", line: line, column: column} | tokens])
   end
 
   defp advance_position(part, line, column) do
@@ -49,7 +67,7 @@ defmodule KiwiCodec.Schema.Parser do
     %Schema{package: package, definitions: Enum.reverse(definitions)}
   end
 
-  defp parse_package([%{text: "package"}, token | rest]) do
+  defp parse_package([%Token{text: "package"}, token | rest]) do
     expect_identifier!(token)
     {_, rest} = expect!(rest, ";")
     {token.text, rest}
@@ -57,7 +75,7 @@ defmodule KiwiCodec.Schema.Parser do
 
   defp parse_package(tokens), do: {nil, tokens}
 
-  defp parse_definitions([%{text: ""} | _] = tokens, acc), do: {acc, tokens}
+  defp parse_definitions([%Token{text: ""} | _] = tokens, acc), do: {acc, tokens}
 
   defp parse_definitions([kind_token, name_token | rest], acc) do
     kind = parse_kind!(kind_token)
@@ -76,12 +94,12 @@ defmodule KiwiCodec.Schema.Parser do
     parse_definitions(rest, [definition | acc])
   end
 
-  defp parse_kind!(%{text: "enum"}), do: :enum
-  defp parse_kind!(%{text: "struct"}), do: :struct
-  defp parse_kind!(%{text: "message"}), do: :message
+  defp parse_kind!(%Token{text: "enum"}), do: :enum
+  defp parse_kind!(%Token{text: "struct"}), do: :struct
+  defp parse_kind!(%Token{text: "message"}), do: :message
   defp parse_kind!(token), do: parse_error!(token, "expected definition kind")
 
-  defp parse_fields([%{text: "}"} | rest], _kind, acc), do: {acc, rest}
+  defp parse_fields([%Token{text: "}"} | rest], _kind, acc), do: {acc, rest}
 
   defp parse_fields(tokens, :enum, acc) do
     [name_token | rest] = tokens
@@ -132,23 +150,23 @@ defmodule KiwiCodec.Schema.Parser do
     parse_fields(rest, kind, [field | acc])
   end
 
-  defp parse_array([%{text: "[]"} | rest]), do: {true, rest}
+  defp parse_array([%Token{text: "[]"} | rest]), do: {true, rest}
   defp parse_array(rest), do: {false, rest}
 
-  defp parse_deprecated([%{text: "[deprecated]"} | rest]), do: {true, rest}
+  defp parse_deprecated([%Token{text: "[deprecated]"} | rest]), do: {true, rest}
   defp parse_deprecated(rest), do: {false, rest}
 
-  defp expect!([%{text: expected} = token | rest], expected), do: {token, rest}
+  defp expect!([%Token{text: expected} = token | rest], expected), do: {token, rest}
 
   defp expect!([token | _rest], expected),
     do: parse_error!(token, "expected #{inspect(expected)}")
 
-  defp expect_identifier!(%{text: text} = token) do
+  defp expect_identifier!(%Token{text: text} = token) do
     unless Regex.match?(~r/^[A-Za-z_][A-Za-z0-9_]*$/, text),
       do: parse_error!(token, "expected identifier")
   end
 
-  defp parse_integer!(%{text: text} = token) do
+  defp parse_integer!(%Token{text: text} = token) do
     case Integer.parse(text) do
       {value, ""} -> value
       _ -> parse_error!(token, "expected integer")

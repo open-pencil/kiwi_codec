@@ -1,5 +1,10 @@
 defmodule KiwiCodec.Wire.Float do
-  @moduledoc false
+  @moduledoc """
+  Kiwi variable-length 32-bit float encoding.
+
+  Kiwi stores IEEE-754 single-precision floats with the exponent byte rotated to
+  the front so common small values can use a compact one-byte zero encoding.
+  """
 
   import Bitwise
 
@@ -24,7 +29,9 @@ defmodule KiwiCodec.Wire.Float do
     end
   end
 
-  @spec decode_varfloat(binary()) :: {float(), binary()}
+  @type value :: float() | :infinity | :negative_infinity | :nan
+
+  @spec decode_varfloat(binary()) :: {value(), binary()}
   def decode_varfloat(<<0, rest::binary>>), do: {0.0, rest}
 
   def decode_varfloat(<<bits::32-little, rest::binary>>) do

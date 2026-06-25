@@ -1,5 +1,10 @@
 defmodule KiwiCodec.DSL do
-  @moduledoc false
+  @moduledoc """
+  Compile-time DSL behind `use KiwiCodec`.
+
+  The DSL records schema fields and enum values, then emits struct, enum,
+  metadata, type, encode/decode, and inspect helpers before compilation.
+  """
 
   alias KiwiCodec.{FieldProps, MessageProps}
 

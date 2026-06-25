@@ -5,6 +5,19 @@ defmodule KiwiCodec.RustlerGenerator do
   This is an experimental bridge for optional native backends. It returns
   RustQ splice replacements for schema-dependent decoder functions and NIF
   entrypoints; `rustq.exs` owns rendering and writing generated files.
+
+  Generated Rust expects the template to provide these imports and helpers:
+
+  * `rustler::{Binary, Encoder, Env, Error, NifResult, Term}`
+  * `rustler::types::atom::Atom`
+  * `std::sync::OnceLock`
+  * a `Decoder<'a>` type with Kiwi primitive reader methods
+  * `cached_atom/3`
+  * `cached_struct_keys/3`
+  * `default_values/2`
+  * `make_struct/3`
+
+  See the examples in the README for a minimal RustQ template skeleton.
   """
 
   alias KiwiCodec.Schema
@@ -42,7 +55,9 @@ defmodule KiwiCodec.RustlerGenerator do
   @doc """
   Returns RustQ splice replacements for a schema.
 
-  Use this from `rustq.exs` with `render/2`:
+  Use this from `rustq.exs` with `render/2`. The template must contain
+  `__rq_definitions!();` and, when NIF entrypoints are requested,
+  `__rq_entrypoints!();` splice anchors:
 
       generate :native_decoders, "native/my_nif/src/generated.rs" do
         schema = KiwiCodec.parse_schema!(File.read!("priv/schema.kiwi"))

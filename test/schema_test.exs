@@ -40,6 +40,26 @@ defmodule KiwiCodec.SchemaTest do
     assert clear_locations(Binary.decode(Binary.encode(schema))) == clear_locations(schema)
   end
 
+  test "rejects unexpected schema characters" do
+    assert_raise ArgumentError, ~r/unexpected input at 1:26, got "@"/, fn ->
+      Parser.parse!("message A { uint id = 1; @ }")
+    end
+  end
+
+  test "raises decode errors for malformed binary schemas" do
+    assert_raise KiwiCodec.DecodeError, ~r/invalid definition kind/, fn ->
+      Binary.decode(<<1, "A", 0, 255, 0>>)
+    end
+
+    assert_raise KiwiCodec.DecodeError, ~r/unterminated string/, fn ->
+      Binary.decode(<<1, "A">>)
+    end
+
+    assert_raise KiwiCodec.DecodeError, ~r/invalid binary schema/, fn ->
+      Binary.decode(<<1, "A", 0, 1, 1, "x", 0, 18, 0, 1>>)
+    end
+  end
+
   test "runtime encode and decode" do
     schema = Parser.parse!(@schema_text)
 

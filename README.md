@@ -89,6 +89,33 @@ binary_schema = KiwiCodec.Schema.Binary.encode(schema)
 schema = KiwiCodec.Schema.Binary.decode(binary_schema)
 ```
 
+## Rustler decoder generation
+
+`KiwiCodec.RustlerGenerator.splices/2` returns RustQ splice groups for native
+Rustler decoders. Use it from `rustq.exs` and let `mix rustq.gen` own rendering:
+
+```elixir
+use RustQ.Config
+
+schema = KiwiCodec.parse_schema!(File.read!("priv/schema.kiwi"))
+
+generate :native_decoders, "native/my_nif/src/generated.rs" do
+  render File.read!("native/my_nif/src/generated.template.rs"),
+    filename: "native/my_nif/src/generated.template.rs",
+    include_dir: "native/my_nif/src",
+    splice: KiwiCodec.RustlerGenerator.splices(schema,
+      definitions: ["Node"],
+      entrypoints: [decode_node: "Node"],
+      module_prefix: "MyApp.Schema"
+    )
+end
+```
+
+The Rust template must define the shared Rustler imports, a Kiwi `Decoder`, and
+helper functions for cached atoms, struct keys, default values, and struct map
+construction. Generated definitions are inserted with `__rq_definitions!();` and
+NIF entrypoints with `__rq_entrypoints!();`.
+
 ## Containers
 
 ```elixir

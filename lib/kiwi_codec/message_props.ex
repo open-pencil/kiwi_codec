@@ -1,5 +1,7 @@
 defmodule KiwiCodec.MessageProps do
-  @moduledoc false
+  @moduledoc """
+  Compiled Kiwi definition metadata for generated modules.
+  """
 
   alias KiwiCodec.FieldProps
 

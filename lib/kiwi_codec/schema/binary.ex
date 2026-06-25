@@ -11,6 +11,7 @@ defmodule KiwiCodec.Schema.Binary do
   @types ["bool", "byte", "int", "uint", "float", "string", "int64", "uint64"]
   @kinds [:enum, :struct, :message]
   @kinds_tuple List.to_tuple(@kinds)
+  @kind_count tuple_size(@kinds_tuple)
 
   @spec encode(Schema.t()) :: binary()
   def encode(%Schema{definitions: definitions}) do
@@ -28,6 +29,19 @@ defmodule KiwiCodec.Schema.Binary do
 
   @spec decode(binary()) :: Schema.t()
   def decode(binary) when is_binary(binary) do
+    do_decode(binary)
+  rescue
+    error in [
+      ArgumentError,
+      Enum.OutOfBoundsError,
+      FunctionClauseError,
+      MatchError,
+      KiwiCodec.DecodeError
+    ] ->
+      reraise_decode_error(error, __STACKTRACE__)
+  end
+
+  defp do_decode(binary) do
     {count, rest} = Varint.decode_uint(binary)
 
     {definitions, rest} =
@@ -53,6 +67,13 @@ defmodule KiwiCodec.Schema.Binary do
     ]
   end
 
+  defp decode_kind!(index) when is_integer(index) and index >= 0 and index < @kind_count,
+    do: elem(@kinds_tuple, index)
+
+  defp decode_kind!(_index) do
+    raise KiwiCodec.DecodeError, message: "invalid definition kind in binary schema"
+  end
+
   defp encode_field(field, definition_index) do
     type_index = Enum.find_index(@types, &(&1 == field.type))
 
@@ -74,17 +95,16 @@ defmodule KiwiCodec.Schema.Binary do
   defp decode_definition(binary) do
     {name, rest} = Wire.decode(:string, binary)
     {kind_index, rest} = Wire.decode(:byte, rest)
+    kind = decode_kind!(kind_index)
     {field_count, rest} = Varint.decode_uint(rest)
 
     {fields, rest} =
       Enum.reduce(1..field_count//1, {[], rest}, fn _index, {acc, tail} ->
-        kind = elem(@kinds_tuple, kind_index)
         {field, next} = decode_field(tail, kind)
         {[field | acc], next}
       end)
 
-    {%Definition{name: name, kind: elem(@kinds_tuple, kind_index), fields: Enum.reverse(fields)},
-     rest}
+    {%Definition{name: name, kind: kind, fields: Enum.reverse(fields)}, rest}
   end
 
   defp decode_field(binary, kind) do
@@ -117,5 +137,12 @@ defmodule KiwiCodec.Schema.Binary do
 
   defp bind_type!(%Field{type: type} = field, definitions) when is_integer(type) do
     %{field | type: definitions |> Enum.fetch!(type) |> Map.fetch!(:name)}
+  end
+
+  defp reraise_decode_error(%KiwiCodec.DecodeError{} = error, stacktrace),
+    do: reraise(error, stacktrace)
+
+  defp reraise_decode_error(error, _stacktrace) do
+    raise KiwiCodec.DecodeError, message: "invalid binary schema: #{Exception.message(error)}"
   end
 end

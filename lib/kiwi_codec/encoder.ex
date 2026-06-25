@@ -1,5 +1,10 @@
 defmodule KiwiCodec.Encoder do
-  @moduledoc false
+  @moduledoc """
+  Encodes generated Kiwi structs into Kiwi wire iodata.
+
+  This module is used by `KiwiCodec.encode/1`; callers normally interact with
+  the public API or generated module `encode/1` functions.
+  """
 
   alias KiwiCodec.{FieldProps, MessageProps, Wire}
   alias KiwiCodec.Wire.Varint

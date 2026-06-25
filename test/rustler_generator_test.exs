@@ -1,70 +1,89 @@
 defmodule KiwiCodec.RustlerGeneratorTest do
   use ExUnit.Case, async: true
 
-  test "renders struct decoder and entrypoint into Rust template" do
-    schema =
-      KiwiCodec.parse_schema!("""
-      enum Kind {
-        Rectangle = 1;
-      }
-
-      struct Point {
-        float x;
-        float y;
-      }
-
-      struct Node {
-        Kind kind;
-        Point position;
-      }
-
-      message Image {
-        byte[] hash = 1;
-        string name = 2;
-        uint dataBlob = 3;
-      }
-      """)
-
+  defp generate_with_rustq_gen!(schema_source, opts) do
     dir =
       Path.join(
         System.tmp_dir!(),
-        "kiwi-rustler-generator-test-#{System.unique_integer([:positive])}"
+        "kiwi-rustq-gen-test-#{System.unique_integer([:positive])}"
       )
 
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf(dir) end)
 
-    template = Path.join(dir, "template.rs")
+    template = Path.join(dir, "generated.template.rs")
     out = Path.join(dir, "generated.rs")
+    config = Path.join(dir, "rustq.exs")
 
-    File.write!(template, """
+    File.write!(template, Keyword.fetch!(opts, :template))
+
+    generator_opts =
+      opts
+      |> Keyword.take([:definitions, :entrypoints, :module_prefix, :extra_splices])
+      |> inspect(limit: :infinity)
+
+    File.write!(config, """
+    use RustQ.Config
+
+    schema = KiwiCodec.parse_schema!(#{inspect(schema_source)})
+
+    generate :generated, #{inspect(out)} do
+      render File.read!(#{inspect(template)}),
+        filename: #{inspect(template)},
+        splice: KiwiCodec.RustlerGenerator.splices(schema, #{generator_opts})
+    end
+    """)
+
+    Mix.Task.reenable("rustq.gen")
+    Mix.Task.run("rustq.gen", ["--config", config])
+    Mix.Task.reenable("rustq.gen")
+
+    {File.read!(out), config}
+  end
+
+  test "renders struct decoder and entrypoint through rustq.gen" do
+    schema_source = """
+    enum Kind {
+      Rectangle = 1;
+    }
+
+    struct Point {
+      float x;
+      float y;
+    }
+
+    struct Node {
+      Kind kind;
+      Point position;
+    }
+
+    message Image {
+      byte[] hash = 1;
+      string name = 2;
+      uint dataBlob = 3;
+    }
+    """
+
+    template = """
     use rustler::{Binary, Env, NifResult, Term};
     use rustler::types::atom::Atom;
     use crate::runtime::Decoder;
 
     __rq_definitions!();
     __rq_entrypoints!();
-    """)
+    """
 
-    KiwiCodec.RustlerGenerator.render!(schema,
-      definitions: ["Node", "Image"],
-      entrypoints: [decode_node: "Node", decode_image: "Image"],
-      module_prefix: "Example.Schema",
-      template: template,
-      out: out
-    )
-
-    generated = File.read!(out)
-
-    generated_source =
-      KiwiCodec.RustlerGenerator.render_source!(schema,
+    {generated, config} =
+      generate_with_rustq_gen!(schema_source,
         definitions: ["Node", "Image"],
         entrypoints: [decode_node: "Node", decode_image: "Image"],
         module_prefix: "Example.Schema",
         template: template
       )
 
-    assert generated_source == generated
+    Mix.Task.run("rustq.gen", ["--check", "--config", config])
+    Mix.Task.reenable("rustq.gen")
+
     assert generated =~ "fn decode_node_from_decoder"
     assert generated =~ "fn decode_point_from_decoder"
     assert generated =~ "fn decode_kind_from_decoder"
@@ -80,44 +99,32 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     refute generated =~ "__rq_"
   end
 
-  test "renders enum and struct decoders from schema-specific AST items" do
-    schema =
-      KiwiCodec.parse_schema!("""
-      enum Kind {
-        Rectangle = 1;
-      }
+  test "renders enum and struct decoders from schema-specific RustQ items" do
+    schema_source = """
+    enum Kind {
+      Rectangle = 1;
+    }
 
-      struct Point {
-        float x;
-        float y;
-      }
+    struct Point {
+      float x;
+      float y;
+    }
 
-      struct Node {
-        Kind kind;
-        Point position;
-      }
-      """)
+    struct Node {
+      Kind kind;
+      Point position;
+    }
+    """
 
-    dir =
-      Path.join(
-        System.tmp_dir!(),
-        "kiwi-rustler-generator-ast-test-#{System.unique_integer([:positive])}"
-      )
-
-    File.mkdir_p!(dir)
-    on_exit(fn -> File.rm_rf(dir) end)
-
-    template = Path.join(dir, "template.rs")
-
-    File.write!(template, """
+    template = """
     use rustler::{Env, NifResult, Term};
     use rustler::types::atom::Atom;
     use crate::runtime::Decoder;
     __rq_definitions!();
-    """)
+    """
 
-    generated =
-      KiwiCodec.RustlerGenerator.render_source!(schema,
+    {generated, _config} =
+      generate_with_rustq_gen!(schema_source,
         definitions: ["Node"],
         module_prefix: "Example.Schema",
         template: template
@@ -131,42 +138,5 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "fn decode_node_from_decoder<'a>"
     refute generated =~ "static MODULE_ATOM: OnceLock<Atom>"
     refute generated =~ "static ATOM_0: OnceLock<Atom>"
-  end
-
-  test "passes render options through to RustQ" do
-    schema =
-      KiwiCodec.parse_schema!("""
-      struct Point {
-        float x;
-      }
-      """)
-
-    dir =
-      Path.join(
-        System.tmp_dir!(),
-        "kiwi-rustler-generator-options-test-#{System.unique_integer([:positive])}"
-      )
-
-    File.mkdir_p!(dir)
-    on_exit(fn -> File.rm_rf(dir) end)
-
-    template = Path.join(dir, "template.rs")
-
-    File.write!(template, """
-    use rustler::{Env, NifResult, Term};
-    use rustler::types::atom::Atom;
-    use crate::runtime::Decoder;
-    __rq_definitions!();
-    """)
-
-    generated =
-      KiwiCodec.RustlerGenerator.render_source!(schema,
-        definitions: ["Point"],
-        module_prefix: "Example.Schema",
-        template: template,
-        rustfmt: true
-      )
-
-    assert generated =~ "fn decode_point_from_decoder<'a>("
   end
 end

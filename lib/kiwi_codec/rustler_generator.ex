@@ -1,10 +1,10 @@
 defmodule KiwiCodec.RustlerGenerator do
   @moduledoc """
-  Generates Rustler decoder code from Kiwi schemas using Rust templates.
+  Generates Rustler decoder code from Kiwi schemas for RustQ manifests.
 
-  This is an experimental bridge for optional native backends. It keeps Rust
-  runtime code in real Rust templates and only generates schema-dependent
-  decoder functions and NIF entrypoints.
+  This is an experimental bridge for optional native backends. It returns
+  RustQ splice replacements for schema-dependent decoder functions and NIF
+  entrypoints; `rustq.exs` owns rendering and writing generated files.
   """
 
   alias KiwiCodec.Schema
@@ -43,31 +43,24 @@ defmodule KiwiCodec.RustlerGenerator do
   @type entrypoint :: {atom() | String.t(), String.t()}
 
   @doc """
-  Renders a Rust template with generated Kiwi decoder replacements.
+  Returns RustQ splice replacements for a schema.
 
-  Generates native decoders for enums, structs, and messages.
+  Use this from `rustq.exs` with `render/2`:
+
+      generate :native_decoders, "native/my_nif/src/generated.rs" do
+        schema = KiwiCodec.parse_schema!(File.read!("priv/schema.kiwi"))
+
+        render "native/my_nif/src/generated.template.rs",
+          splice: KiwiCodec.RustlerGenerator.splices(schema,
+            definitions: ["Node"],
+            entrypoints: [decode_node: "Node"],
+            module_prefix: "Example.Schema"
+          )
+      end
+
   """
-  @spec render!(Schema.t(), keyword()) :: Path.t()
-  def render!(%Schema{} = schema, opts) do
-    template = Keyword.fetch!(opts, :template)
-    out = Keyword.fetch!(opts, :out)
-
-    KiwiCodec.RustTemplate.render!(template, out, replacements(schema, opts), opts)
-  end
-
-  @doc """
-  Renders a Rust template with generated Kiwi decoder replacements and returns source.
-
-  Accepts the same options as `render!/2`, except `:out` is not required.
-  """
-  @spec render_source!(Schema.t(), keyword()) :: String.t()
-  def render_source!(%Schema{} = schema, opts) do
-    template = Keyword.fetch!(opts, :template)
-
-    KiwiCodec.RustTemplate.render_source!(template, replacements(schema, opts), opts)
-  end
-
-  defp replacements(%Schema{} = schema, opts) do
+  @spec splices(Schema.t(), keyword()) :: [{atom(), [RustQ.Rust.Fragment.t()]}]
+  def splices(%Schema{} = schema, opts) do
     definitions = Keyword.get(opts, :definitions, [])
     entrypoints = Keyword.get(opts, :entrypoints, [])
     module_prefix = Keyword.fetch!(opts, :module_prefix)

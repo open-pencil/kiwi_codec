@@ -56,7 +56,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, path: "../rustq", runtime: false}
+    {:rustq, "~> 0.8", runtime: false}
   end
 
   defp package do

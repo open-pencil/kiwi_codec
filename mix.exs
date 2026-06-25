@@ -56,11 +56,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    if File.dir?("../rustq") do
-      {:rustq, "~> 0.4", path: "../rustq", runtime: false}
-    else
-      {:rustq, github: "dannote/rustq", branch: "master", runtime: false}
-    end
+    {:rustq, "~> 0.7", runtime: false}
   end
 
   defp package do

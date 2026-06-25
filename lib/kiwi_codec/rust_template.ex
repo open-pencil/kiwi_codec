@@ -7,7 +7,8 @@ defmodule KiwiCodec.RustTemplate do
   by the splice name, for example `{:definitions, code}`.
   """
 
-  @type replacement :: {atom(), String.t() | [String.t()]}
+  @type replacement ::
+          {atom(), String.t() | RustQ.Rust.Fragment.t() | [String.t() | RustQ.Rust.Fragment.t()]}
 
   @doc """
   Renders `template` to `out` using `replacements`.

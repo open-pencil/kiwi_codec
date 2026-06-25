@@ -9,17 +9,36 @@ defmodule KiwiCodec.RustlerGenerator do
 
   alias KiwiCodec.Schema
   alias KiwiCodec.Schema.Definition
+  alias RustQ.Rust
+  alias RustQ.Rust.AST
+  alias RustQ.Rust.AST.Builder, as: A
+  alias RustQ.Rust.AST.PatternBuilder, as: P
 
-  @primitive_decoders %{
-    "bool" => "read_bool()",
-    "byte" => "read_byte()",
-    "float" => "read_var_float(env)",
-    "int" => "read_var_int()",
-    "int64" => "read_var_int64()",
-    "string" => "read_string(env)",
-    "uint" => "read_var_uint()",
-    "uint64" => "read_var_uint64()"
-  }
+  require A
+
+  @primitive_decoders [
+    {"bool", :read_bool, []},
+    {"byte", :read_byte, []},
+    {"float", :read_var_float, [:env]},
+    {"int", :read_var_int, []},
+    {"int64", :read_var_int64, []},
+    {"string", :read_string, [:env]},
+    {"uint", :read_var_uint, []},
+    {"uint64", :read_var_uint64, []}
+  ]
+
+  for {type, method, args} <- @primitive_decoders do
+    defp primitive_decoder_expr(%{type: unquote(type)}) do
+      A.method(:decoder, unquote(method), unquote(args))
+    end
+
+    defp primitive_decoder_source(%{type: unquote(type)}) do
+      unquote("decoder.#{method}(#{Enum.map_join(args, ", ", &to_string/1)})")
+    end
+  end
+
+  defp primitive_decoder_expr(_field), do: nil
+  defp primitive_decoder_source(_field), do: nil
 
   @type entrypoint :: {atom() | String.t(), String.t()}
 
@@ -92,45 +111,34 @@ defmodule KiwiCodec.RustlerGenerator do
 
   defp definition_fragments(definitions, module_prefix, definition_map) do
     definitions
-    |> Enum.map(&definition_fragment(&1, module_prefix, definition_map))
-    |> Enum.reject(&(&1 == nil))
+    |> Enum.flat_map(&definition_items(&1, module_prefix, definition_map))
     |> Enum.map(&fragment_code/1)
   end
 
-  defp definition_fragment(definition, module_prefix, definition_map) do
+  defp definition_items(%Definition{kind: :enum} = definition, _module_prefix, _definition_map) do
+    variant_statics =
+      definition.fields
+      |> Enum.with_index()
+      |> Enum.map(fn {_field, index} ->
+        atom_static(enum_variant_atom_static(definition.name, index))
+      end)
+
+    variant_statics ++ [Rust.ast_item(enum_decoder_ast(definition))]
+  end
+
+  defp definition_items(%Definition{kind: :struct} = definition, module_prefix, definition_map) do
+    [
+      atom_static(module_atom_static(definition.name)),
+      keys_static(struct_keys_static(definition.name)),
+      Rust.ast_item(struct_decoder_ast(definition, module_prefix, definition_map))
+    ]
+  end
+
+  defp definition_items(%Definition{} = definition, module_prefix, definition_map) do
     definition
     |> definition_code(module_prefix, definition_map)
     |> rust_item_fragment()
-  end
-
-  defp definition_code(%Definition{kind: :enum} = definition, _module_prefix, _definition_map) do
-    arms = definition.fields |> Enum.with_index() |> Enum.map(&enum_arm/1)
-
-    """
-    fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
-        match decoder.read_var_uint()? {
-    #{indent(arms, 8)}
-            value => Ok((value as i64).encode(env)),
-        }
-    }
-    """
-  end
-
-  defp definition_code(%Definition{kind: :struct} = definition, module_prefix, definition_map) do
-    fields = Enum.map(definition.fields, &struct_field_decode(&1, definition_map))
-
-    """
-    fn #{decoder_name(definition.name)}_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
-        static MODULE_ATOM: OnceLock<Atom> = OnceLock::new();
-        static STRUCT_KEYS: OnceLock<Vec<rustler::wrapper::NIF_TERM>> = OnceLock::new();
-        let module_atom = cached_atom(env, &MODULE_ATOM, #{rust_string(module_name(module_prefix, definition.name))});
-        let keys = cached_struct_keys(env, &STRUCT_KEYS, &[#{field_names(definition.fields)}]);
-        let mut values = Vec::with_capacity(keys.len());
-        values.push(module_atom.as_c_arg());
-    #{indent(fields, 4)}
-        make_struct(env, keys, &values)
-    }
-    """
+    |> List.wrap()
   end
 
   defp definition_code(%Definition{kind: :message} = definition, module_prefix, definition_map) do
@@ -156,21 +164,111 @@ defmodule KiwiCodec.RustlerGenerator do
     """
   end
 
-  defp enum_arm({field, index}) do
-    "#{field.value} => { static ATOM_#{index}: OnceLock<Atom> = OnceLock::new(); Ok(cached_atom(env, &ATOM_#{index}, #{rust_string(field_name(field.name))}).encode(env)) },"
+  defp atom_static(name) do
+    Rust.ast_item(A.static(name, "OnceLock<Atom>", A.path_call([:OnceLock, :new])))
   end
 
-  defp struct_field_decode(field, definition_map) do
-    value = field_value(field, definition_map)
+  defp keys_static(name) do
+    Rust.ast_item(
+      A.static(name, "OnceLock<Vec<rustler::wrapper::NIF_TERM>>", A.path_call([:OnceLock, :new]))
+    )
+  end
 
-    """
-    let value = #{value};
-    values.push(value.encode(env).as_c_arg());
-    """
+  defp enum_decoder_ast(%Definition{} = definition) do
+    %AST.Function{
+      name: decoder_function_name(definition.name),
+      lifetime: :a,
+      args: decoder_args(),
+      returns: term_result_type(),
+      body: [
+        A.return(
+          A.match_expr(
+            A.cast(A.try(A.method(:decoder, :read_var_uint)), A.type_path(:i64)),
+            enum_arms(definition) ++ [unknown_enum_arm()]
+          )
+        )
+      ]
+    }
+  end
+
+  defp enum_arms(%Definition{} = definition) do
+    definition.fields
+    |> Enum.with_index()
+    |> Enum.map(fn {field, index} ->
+      atom_static = enum_variant_atom_static(definition.name, index)
+
+      %AST.Arm{
+        pattern: P.lit(field.value),
+        body: [
+          A.return(
+            A.ok(
+              A.method(
+                A.call(:cached_atom, [
+                  :env,
+                  A.ref(atom_static),
+                  field.name |> field_name() |> A.lit()
+                ]),
+                :encode,
+                [:env]
+              )
+            )
+          )
+        ]
+      }
+    end)
+  end
+
+  defp unknown_enum_arm do
+    %AST.Arm{
+      pattern: P.var(:value),
+      body: [A.return(A.ok(A.method(:value, :encode, [:env])))]
+    }
+  end
+
+  defp struct_decoder_ast(%Definition{} = definition, module_prefix, definition_map) do
+    module_atom = module_atom_static(definition.name)
+    struct_keys = struct_keys_static(definition.name)
+
+    %AST.Function{
+      name: decoder_function_name(definition.name),
+      lifetime: :a,
+      args: decoder_args(),
+      returns: term_result_type(),
+      body:
+        [
+          A.let(
+            :module_atom,
+            A.call(:cached_atom, [
+              :env,
+              A.ref(module_atom),
+              A.lit(module_name(module_prefix, definition.name))
+            ])
+          ),
+          A.let(
+            :keys,
+            A.call(:cached_struct_keys, [
+              :env,
+              A.ref(struct_keys),
+              A.ref(A.array(Enum.map(definition.fields, &A.lit(field_name(&1.name)))))
+            ])
+          ),
+          A.let_mut(:values, A.path_call([:Vec, :with_capacity], [A.method(:keys, :len)])),
+          A.stmt(A.method(:values, :push, [A.method(:module_atom, :as_c_arg)]))
+        ] ++
+          Enum.flat_map(definition.fields, &struct_field_stmts(&1, definition_map)) ++
+          [A.return(A.call(:make_struct, [:env, :keys, A.ref(:values)]))]
+    }
+  end
+
+  defp struct_field_stmts(field, definition_map) do
+    [
+      A.let(:value, field_value_expr(field, definition_map)),
+      A.stmt(A.method(:values, :push, [A.method(A.method(:value, :encode, [:env]), :as_c_arg)]))
+    ]
   end
 
   defp message_field_arm({field, index}, definition_map) do
-    value = field_value(field, definition_map)
+    value = field_value_source(field, definition_map)
 
     """
     #{field.value} => {
@@ -180,40 +278,76 @@ defmodule KiwiCodec.RustlerGenerator do
     """
   end
 
-  defp field_value(%{array?: true, type: "byte"}, _definition_map) do
+  defp field_value_expr(%{array?: true, type: "byte"}, _definition_map) do
+    A.try(A.method(:decoder, :read_byte_array, [:env]))
+  end
+
+  defp field_value_expr(%{array?: true} = field, definition_map) do
+    A.try(
+      A.method(:decoder, :read_repeated, [
+        A.closure([:decoder], field_result_expr(%{field | array?: false}, definition_map))
+      ])
+    )
+  end
+
+  defp field_value_expr(field, definition_map),
+    do: A.try(field_result_expr(field, definition_map))
+
+  defp field_result_expr(field, definition_map) do
+    primitive_decoder_expr(field) ||
+      field
+      |> referenced_definition!(definition_map)
+      |> then(&A.call(decoder_function_name(&1.name), [:env, :decoder]))
+  end
+
+  defp field_value_source(%{array?: true, type: "byte"}, _definition_map) do
     "decoder.read_byte_array(env)?"
   end
 
-  defp field_value(%{array?: true} = field, definition_map) do
-    "decoder.read_repeated(|decoder| #{field_result(%{field | array?: false}, definition_map)})?"
+  defp field_value_source(%{array?: true} = field, definition_map) do
+    "decoder.read_repeated(|decoder| #{field_result_source(%{field | array?: false}, definition_map)})?"
   end
 
-  defp field_value(field, definition_map), do: "#{field_result(field, definition_map)}?"
+  defp field_value_source(field, definition_map),
+    do: "#{field_result_source(field, definition_map)}?"
 
-  defp field_result(field, definition_map) do
-    cond do
-      primitive = @primitive_decoders[field.type] ->
-        "decoder.#{primitive}"
-
-      definition = definition_map[field.type] ->
-        "#{decoder_name(definition.name)}_from_decoder(env, decoder)"
-    end
+  defp field_result_source(field, definition_map) do
+    primitive_decoder_source(field) ||
+      field
+      |> referenced_definition!(definition_map)
+      |> then(&"#{decoder_name(&1.name)}_from_decoder(env, decoder)")
   end
+
+  defp referenced_definition!(field, definition_map), do: Map.fetch!(definition_map, field.type)
 
   defp entrypoint_fragments(entrypoints) do
     Enum.map(entrypoints, fn {nif_name, definition_name} ->
-      """
-      #[rustler::nif(schedule = "DirtyCpu")]
-      pub fn #{nif_name}<'a>(env: Env<'a>, bytes: Binary<'a>) -> NifResult<Term<'a>> {
-          let mut decoder = Decoder::new(bytes.as_slice());
-          let term = #{decoder_name(definition_name)}_from_decoder(env, &mut decoder)?;
-          decoder.finish()?;
-          Ok(term)
-      }
-      """
-      |> rust_item_fragment()
-      |> fragment_code()
+      definition_name
+      |> entrypoint_ast(nif_name)
+      |> Rust.ast_item()
     end)
+  end
+
+  defp entrypoint_ast(definition_name, nif_name) do
+    decoder_name = decoder_function_name(definition_name)
+
+    %AST.Function{
+      name: RustQ.Atom.identifier!(to_string(nif_name)),
+      vis: :pub,
+      lifetime: :a,
+      attrs: [A.nif_attr(schedule: "DirtyCpu")],
+      args: [
+        A.arg(:env, A.type_path(:Env, lifetimes: [:a])),
+        A.arg(:bytes, A.type_path(:Binary, lifetimes: [:a]))
+      ],
+      returns: A.type_path(:NifResult, generics: [A.type_path(:Term, lifetimes: [:a])]),
+      body: [
+        A.let_mut(:decoder, A.path_call([:Decoder, :new], [A.method(:bytes, :as_slice)])),
+        A.let(:term, A.try(A.call(decoder_name, [:env, A.mut_ref(:decoder)]))),
+        A.stmt(A.try(A.method(:decoder, :finish))),
+        A.return(A.ok(:term))
+      ]
+    }
   end
 
   defp rust_item_fragment(code) do
@@ -225,6 +359,32 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp decoder_name(name), do: "decode_#{rust_ident(name)}"
+
+  defp decoder_function_name(name),
+    do: name |> decoder_name() |> Kernel.<>("_from_decoder") |> RustQ.Atom.identifier!()
+
+  defp decoder_args do
+    [
+      A.arg(:env, A.type_path(:Env, lifetimes: [:a])),
+      A.arg(:decoder, "&mut Decoder<'_>")
+    ]
+  end
+
+  defp term_result_type do
+    A.type_path(:NifResult, generics: [A.type_path(:Term, lifetimes: [:a])])
+  end
+
+  defp module_atom_static(name), do: static_name(name, "MODULE_ATOM")
+  defp struct_keys_static(name), do: static_name(name, "STRUCT_KEYS")
+  defp enum_variant_atom_static(name, index), do: static_name(name, "ATOM_#{index}")
+
+  defp static_name(name, suffix) do
+    name
+    |> rust_ident()
+    |> String.upcase()
+    |> Kernel.<>("_#{suffix}")
+    |> RustQ.Atom.identifier!()
+  end
 
   defp module_name(module_prefix, name) do
     "Elixir.#{module_prefix}.#{name}"

@@ -70,12 +70,67 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "fn decode_kind_from_decoder"
     assert generated =~ "pub fn decode_node"
     assert generated =~ "pub fn decode_image"
+    assert generated =~ "decode_node_from_decoder(env, &mut decoder)?"
+    refute generated =~ "let term = decode_node(env, &mut decoder)?"
     assert generated =~ ~s("Elixir.Example.Schema.Node")
     assert generated =~ ~s("Elixir.Example.Schema.Image")
     assert generated =~ "decoder.read_var_float(env)?"
     assert generated =~ "decoder.read_byte_array(env)?"
     assert generated =~ "match decoder.read_var_uint()?"
     refute generated =~ "__rq_"
+  end
+
+  test "renders enum and struct decoders from schema-specific AST items" do
+    schema =
+      KiwiCodec.parse_schema!("""
+      enum Kind {
+        Rectangle = 1;
+      }
+
+      struct Point {
+        float x;
+        float y;
+      }
+
+      struct Node {
+        Kind kind;
+        Point position;
+      }
+      """)
+
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "kiwi-rustler-generator-ast-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf(dir) end)
+
+    template = Path.join(dir, "template.rs")
+
+    File.write!(template, """
+    use rustler::{Env, NifResult, Term};
+    use rustler::types::atom::Atom;
+    use crate::runtime::Decoder;
+    __rq_definitions!();
+    """)
+
+    generated =
+      KiwiCodec.RustlerGenerator.render_source!(schema,
+        definitions: ["Node"],
+        module_prefix: "Example.Schema",
+        template: template
+      )
+
+    assert generated =~ "static KIND_ATOM_0: OnceLock<Atom> = OnceLock::new();"
+    assert generated =~ "static POINT_MODULE_ATOM: OnceLock<Atom> = OnceLock::new();"
+    assert generated =~ "static NODE_STRUCT_KEYS: OnceLock<Vec<rustler::wrapper::NIF_TERM>>"
+    assert generated =~ "fn decode_kind_from_decoder<'a>"
+    assert generated =~ "match decoder.read_var_uint()? as i64"
+    assert generated =~ "fn decode_node_from_decoder<'a>"
+    refute generated =~ "static MODULE_ATOM: OnceLock<Atom>"
+    refute generated =~ "static ATOM_0: OnceLock<Atom>"
   end
 
   test "passes render options through to RustQ" do

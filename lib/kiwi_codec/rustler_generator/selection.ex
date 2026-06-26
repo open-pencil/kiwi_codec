@@ -5,10 +5,10 @@ defmodule KiwiCodec.RustlerGenerator.Selection do
 
   alias KiwiCodec.Schema
 
-  @spec definition_map(Schema.t()) :: %{String.t() => Schema.Definition.t()}
+  @spec definition_map(Schema.t()) :: %{String.t() => Schema.definition()}
   def definition_map(%Schema{} = schema), do: Map.new(schema.definitions, &{&1.name, &1})
 
-  @spec definitions(Schema.t(), [atom() | String.t()], map()) :: [Schema.Definition.t()]
+  @spec definitions(Schema.t(), [atom() | String.t()], map()) :: [Schema.definition()]
   def definitions(%Schema{} = schema, [], _definition_map), do: schema.definitions
 
   def definitions(%Schema{} = schema, names, definition_map) do
@@ -29,14 +29,15 @@ defmodule KiwiCodec.RustlerGenerator.Selection do
       definition = Map.fetch!(definition_map, name)
 
       dependencies =
-        definition.fields
-        |> Enum.flat_map(fn
-          %{type: type} -> [type]
-          _variant -> []
-        end)
+        definition
+        |> fields()
+        |> Enum.map(& &1.type)
         |> Enum.filter(&Map.has_key?(definition_map, &1))
 
       include_dependencies(names ++ dependencies, definition_map, MapSet.put(acc, name))
     end
   end
+
+  defp fields(%{fields: fields}), do: fields
+  defp fields(_enum), do: []
 end

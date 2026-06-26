@@ -30,7 +30,7 @@ defmodule KiwiCodec.SchemaTest do
 
     assert Enum.map(schema.definitions, & &1.name) == ["NodeType", "Vector", "NodeChange"]
 
-    [variant | _] = hd(schema.definitions).fields
+    [variant | _] = hd(schema.definitions).variants
     assert %KiwiCodec.Schema.EnumVariant{name: "NONE", value: 0} = variant
 
     assert [id | _] = List.last(schema.definitions).fields
@@ -82,9 +82,14 @@ defmodule KiwiCodec.SchemaTest do
 
   defp clear_locations(schema) do
     update_in(schema.definitions, fn definitions ->
-      Enum.map(definitions, fn definition ->
-        fields = Enum.map(definition.fields, &%{&1 | line: 0, column: 0})
-        %{definition | fields: fields, line: 0, column: 0}
+      Enum.map(definitions, fn
+        %KiwiCodec.Schema.Enum{} = definition ->
+          variants = Enum.map(definition.variants, &%{&1 | line: 0, column: 0})
+          %{definition | variants: variants, line: 0, column: 0}
+
+        definition ->
+          fields = Enum.map(definition.fields, &%{&1 | line: 0, column: 0})
+          %{definition | fields: fields, line: 0, column: 0}
       end)
     end)
   end

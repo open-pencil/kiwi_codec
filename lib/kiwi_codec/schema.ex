@@ -3,40 +3,78 @@ defmodule KiwiCodec.Schema do
   Parsed Kiwi schema.
   """
 
-  alias KiwiCodec.Schema.Definition
+  alias KiwiCodec.Schema.Enum, as: SchemaEnum
+  alias KiwiCodec.Schema.{Message, Struct}
 
-  @type t :: %__MODULE__{package: String.t() | nil, definitions: [Definition.t()]}
+  @type definition :: SchemaEnum.t() | Struct.t() | Message.t()
+  @type t :: %__MODULE__{package: String.t() | nil, definitions: [definition()]}
 
   defstruct package: nil, definitions: []
 
   @spec native_type?(String.t()) :: boolean()
   def native_type?(type), do: KiwiCodec.PrimitiveType.name?(type)
 
-  @spec definition(t(), String.t()) :: Definition.t() | nil
+  @spec definition(t(), String.t()) :: definition() | nil
   def definition(%__MODULE__{definitions: definitions}, name) do
-    Enum.find(definitions, &(&1.name == name))
+    Elixir.Enum.find(definitions, &(&1.name == name))
   end
 end
 
-defmodule KiwiCodec.Schema.Definition do
+defmodule KiwiCodec.Schema.Enum do
   @moduledoc """
-  Kiwi enum, struct, or message definition.
+  Kiwi enum definition.
   """
 
-  alias KiwiCodec.Schema.{EnumVariant, Field}
+  alias KiwiCodec.Schema.EnumVariant
 
-  @type kind :: :enum | :struct | :message
-  @type member :: Field.t() | EnumVariant.t()
   @type t :: %__MODULE__{
           name: String.t(),
-          kind: kind(),
-          fields: [member()],
+          variants: [EnumVariant.t()],
           line: non_neg_integer(),
           column: non_neg_integer()
         }
 
   defstruct name: nil,
-            kind: nil,
+            variants: [],
+            line: 0,
+            column: 0
+end
+
+defmodule KiwiCodec.Schema.Struct do
+  @moduledoc """
+  Kiwi struct definition.
+  """
+
+  alias KiwiCodec.Schema.Field
+
+  @type t :: %__MODULE__{
+          name: String.t(),
+          fields: [Field.t()],
+          line: non_neg_integer(),
+          column: non_neg_integer()
+        }
+
+  defstruct name: nil,
+            fields: [],
+            line: 0,
+            column: 0
+end
+
+defmodule KiwiCodec.Schema.Message do
+  @moduledoc """
+  Kiwi message definition.
+  """
+
+  alias KiwiCodec.Schema.Field
+
+  @type t :: %__MODULE__{
+          name: String.t(),
+          fields: [Field.t()],
+          line: non_neg_integer(),
+          column: non_neg_integer()
+        }
+
+  defstruct name: nil,
             fields: [],
             line: 0,
             column: 0

@@ -15,7 +15,8 @@ defmodule KiwiCodec.RustlerGenerator do
   alias KiwiCodec.RustlerGenerator.Selection
   alias KiwiCodec.RustlerGenerator.Splice
   alias KiwiCodec.Schema
-  alias KiwiCodec.Schema.Definition
+  alias KiwiCodec.Schema.Enum, as: SchemaEnum
+  alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Meta.AST, as: MetaAST
   alias RustQ.Rust
   alias RustQ.Rust.AST.Builder, as: A
@@ -113,9 +114,9 @@ defmodule KiwiCodec.RustlerGenerator do
     |> Enum.map(&fragment_code/1)
   end
 
-  defp definition_items(%Definition{kind: :enum} = definition, _module_prefix, _definition_map) do
+  defp definition_items(%SchemaEnum{} = definition, _module_prefix, _definition_map) do
     variant_statics =
-      definition.fields
+      definition.variants
       |> Enum.with_index()
       |> Enum.map(fn {_field, index} ->
         atom_static(Name.enum_variant_atom_static(definition.name, index))
@@ -124,7 +125,7 @@ defmodule KiwiCodec.RustlerGenerator do
     variant_statics ++ [enum_decoder_item(definition)]
   end
 
-  defp definition_items(%Definition{kind: :struct} = definition, module_prefix, definition_map) do
+  defp definition_items(%Struct{} = definition, module_prefix, definition_map) do
     [
       atom_static(Name.module_atom_static(definition.name)),
       keys_static(Name.struct_keys_static(definition.name)),
@@ -132,7 +133,7 @@ defmodule KiwiCodec.RustlerGenerator do
     ]
   end
 
-  defp definition_items(%Definition{kind: :message} = definition, module_prefix, definition_map) do
+  defp definition_items(%Message{} = definition, module_prefix, definition_map) do
     [
       atom_static(Name.module_atom_static(definition.name)),
       keys_static(Name.struct_keys_static(definition.name)),
@@ -151,13 +152,13 @@ defmodule KiwiCodec.RustlerGenerator do
     )
   end
 
-  defp enum_decoder_item(%Definition{} = definition) do
+  defp enum_decoder_item(%SchemaEnum{} = definition) do
     definition
     |> generated_enum_module!()
     |> MetaAST.item(Name.decoder_function(definition.name))
   end
 
-  defp generated_enum_module!(%Definition{} = definition) do
+  defp generated_enum_module!(%SchemaEnum{} = definition) do
     module =
       Module.concat([
         KiwiCodec.RustlerGenerator.Generated,
@@ -168,7 +169,7 @@ defmodule KiwiCodec.RustlerGenerator do
       module
     else
       variants =
-        definition.fields
+        definition.variants
         |> Enum.with_index()
         |> Enum.map(fn {field, index} ->
           {
@@ -199,13 +200,13 @@ defmodule KiwiCodec.RustlerGenerator do
     end
   end
 
-  defp struct_decoder_item(%Definition{} = definition, module_prefix, definition_map) do
+  defp struct_decoder_item(%Struct{} = definition, module_prefix, definition_map) do
     definition
     |> generated_struct_module!(module_prefix, definition_map)
     |> MetaAST.item(Name.decoder_function(definition.name))
   end
 
-  defp generated_struct_module!(%Definition{} = definition, module_prefix, definition_map) do
+  defp generated_struct_module!(%Struct{} = definition, module_prefix, definition_map) do
     module =
       Module.concat([
         KiwiCodec.RustlerGenerator.Generated,
@@ -241,19 +242,19 @@ defmodule KiwiCodec.RustlerGenerator do
     end
   end
 
-  defp message_decoder_item(%Definition{} = definition, module_prefix, definition_map) do
+  defp message_decoder_item(%Message{} = definition, module_prefix, definition_map) do
     definition
     |> generated_message_module!(module_prefix, definition_map)
     |> MetaAST.item(Name.decoder_function(definition.name))
   end
 
-  defp message_fields_decoder_item(%Definition{} = definition, module_prefix, definition_map) do
+  defp message_fields_decoder_item(%Message{} = definition, module_prefix, definition_map) do
     definition
     |> generated_message_module!(module_prefix, definition_map)
     |> MetaAST.item(Name.message_fields_function(definition.name))
   end
 
-  defp generated_message_module!(%Definition{} = definition, module_prefix, definition_map) do
+  defp generated_message_module!(%Message{} = definition, module_prefix, definition_map) do
     module =
       Module.concat([
         KiwiCodec.RustlerGenerator.Generated,

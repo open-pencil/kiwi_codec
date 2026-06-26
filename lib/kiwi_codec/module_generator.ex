@@ -4,7 +4,8 @@ defmodule KiwiCodec.ModuleGenerator do
   """
 
   alias KiwiCodec.Schema
-  alias KiwiCodec.Schema.Definition
+  alias KiwiCodec.Schema.Enum, as: SchemaEnum
+  alias KiwiCodec.Schema.{Message, Struct}
 
   @spec generate(Schema.t(), keyword()) :: [{Path.t(), String.t()}]
   def generate(%Schema{} = schema, opts) do
@@ -18,15 +19,15 @@ defmodule KiwiCodec.ModuleGenerator do
     end)
   end
 
-  defp generate_module(schema, %Definition{} = definition, prefix, module) do
+  defp generate_module(schema, definition, prefix, module) do
     definition
     |> module_ast(schema, prefix, module)
     |> format_ast()
   end
 
-  defp module_ast(%Definition{kind: :enum} = definition, _schema, _prefix, module) do
-    values = Enum.map(definition.fields, &enum_value_ast/1)
-    moduledoc = generated_moduledoc(definition)
+  defp module_ast(%SchemaEnum{} = definition, _schema, _prefix, module) do
+    values = Enum.map(definition.variants, &enum_value_ast/1)
+    moduledoc = generated_moduledoc(definition, :enum)
 
     quote do
       defmodule unquote(module) do
@@ -39,22 +40,37 @@ defmodule KiwiCodec.ModuleGenerator do
     end
   end
 
-  defp module_ast(%Definition{} = definition, schema, prefix, module) do
+  defp module_ast(%Struct{} = definition, schema, prefix, module) do
     fields = Enum.map(definition.fields, &field_ast(schema, &1, prefix))
-    moduledoc = generated_moduledoc(definition)
+    moduledoc = generated_moduledoc(definition, :struct)
 
     quote do
       defmodule unquote(module) do
         @moduledoc unquote(moduledoc)
 
-        use KiwiCodec, kind: unquote(definition.kind)
+        use KiwiCodec, kind: :struct
 
         unquote_splicing(fields)
       end
     end
   end
 
-  defp generated_moduledoc(%Definition{name: name, kind: kind}) do
+  defp module_ast(%Message{} = definition, schema, prefix, module) do
+    fields = Enum.map(definition.fields, &field_ast(schema, &1, prefix))
+    moduledoc = generated_moduledoc(definition, :message)
+
+    quote do
+      defmodule unquote(module) do
+        @moduledoc unquote(moduledoc)
+
+        use KiwiCodec, kind: :message
+
+        unquote_splicing(fields)
+      end
+    end
+  end
+
+  defp generated_moduledoc(%{name: name}, kind) do
     "Generated Kiwi #{kind} module for `#{name}`."
   end
 
@@ -91,8 +107,9 @@ defmodule KiwiCodec.ModuleGenerator do
 
   defp schema_type(schema, type, prefix) do
     case Schema.definition(schema, type) do
-      %Definition{kind: :enum} -> {:enum, Module.concat([prefix, type])}
-      %Definition{} -> Module.concat([prefix, type])
+      %SchemaEnum{} -> {:enum, Module.concat([prefix, type])}
+      %Struct{} -> Module.concat([prefix, type])
+      %Message{} -> Module.concat([prefix, type])
       nil -> raise ArgumentError, "unknown type #{inspect(type)}"
     end
   end

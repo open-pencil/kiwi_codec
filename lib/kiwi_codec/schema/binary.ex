@@ -4,7 +4,8 @@ defmodule KiwiCodec.Schema.Binary do
   """
 
   alias KiwiCodec.Schema
-  alias KiwiCodec.Schema.{Definition, EnumVariant, Field}
+  alias KiwiCodec.Schema.Enum, as: SchemaEnum
+  alias KiwiCodec.Schema.{EnumVariant, Field, Message, Struct}
   alias KiwiCodec.Wire
   alias KiwiCodec.Wire.Varint
 
@@ -55,14 +56,26 @@ defmodule KiwiCodec.Schema.Binary do
     %Schema{definitions: bind_types!(definitions)}
   end
 
-  defp encode_definition(definition, definition_index) do
-    kind_index = Enum.find_index(@kinds, &(&1 == definition.kind))
+  defp encode_definition(%SchemaEnum{} = definition, definition_index) do
+    encode_definition_members(definition.name, :enum, definition.variants, definition_index)
+  end
+
+  defp encode_definition(%Struct{} = definition, definition_index) do
+    encode_definition_members(definition.name, :struct, definition.fields, definition_index)
+  end
+
+  defp encode_definition(%Message{} = definition, definition_index) do
+    encode_definition_members(definition.name, :message, definition.fields, definition_index)
+  end
+
+  defp encode_definition_members(name, kind, members, definition_index) do
+    kind_index = Enum.find_index(@kinds, &(&1 == kind))
 
     [
-      Wire.encode(:string, definition.name),
+      Wire.encode(:string, name),
       Wire.encode(:byte, kind_index),
-      Varint.encode_uint(length(definition.fields)),
-      Enum.map(definition.fields, &encode_field(&1, definition_index))
+      Varint.encode_uint(length(members)),
+      Enum.map(members, &encode_field(&1, definition_index))
     ]
   end
 
@@ -104,13 +117,13 @@ defmodule KiwiCodec.Schema.Binary do
     kind = decode_kind!(kind_index)
     {field_count, rest} = Varint.decode_uint(rest)
 
-    {fields, rest} =
+    {members, rest} =
       Enum.reduce(1..field_count//1, {[], rest}, fn _index, {acc, tail} ->
         {field, next} = decode_field(tail, kind)
         {[field | acc], next}
       end)
 
-    {%Definition{name: name, kind: kind, fields: Enum.reverse(fields)}, rest}
+    {decode_definition_struct(kind, name, Enum.reverse(members)), rest}
   end
 
   defp decode_field(binary, kind) do
@@ -123,11 +136,21 @@ defmodule KiwiCodec.Schema.Binary do
   end
 
   defp bind_types!(definitions) do
-    Enum.map(definitions, fn definition ->
-      fields = Enum.map(definition.fields, &bind_type!(&1, definitions))
-      %{definition | fields: fields}
+    Enum.map(definitions, fn
+      %SchemaEnum{} = definition ->
+        definition
+
+      definition ->
+        fields = Enum.map(definition.fields, &bind_type!(&1, definitions))
+        %{definition | fields: fields}
     end)
   end
+
+  defp decode_definition_struct(:enum, name, variants),
+    do: %SchemaEnum{name: name, variants: variants}
+
+  defp decode_definition_struct(:struct, name, fields), do: %Struct{name: name, fields: fields}
+  defp decode_definition_struct(:message, name, fields), do: %Message{name: name, fields: fields}
 
   defp decode_schema_member(:enum, name, _type, _array_flag, value) do
     %EnumVariant{name: name, value: value}

@@ -14,7 +14,8 @@ defmodule KiwiCodec.Schema.Parser do
   end
 
   alias KiwiCodec.Schema
-  alias KiwiCodec.Schema.{Definition, EnumVariant, Field}
+  alias KiwiCodec.Schema.Enum, as: SchemaEnum
+  alias KiwiCodec.Schema.{EnumVariant, Field, Message, Struct}
 
   @reserved_names ~w(ByteBuffer package)
   @token_pattern ~r/((?:-|\b)\d+\b|[=;{}]|\[\]|\[deprecated\]|\b[A-Za-z_][A-Za-z0-9_]*\b|\/\/.*|\s+)/
@@ -81,15 +82,16 @@ defmodule KiwiCodec.Schema.Parser do
     kind = parse_kind!(kind_token)
     expect_identifier!(name_token)
     {_, rest} = expect!(rest, "{")
-    {fields, rest} = parse_fields(rest, kind, [])
+    {members, rest} = parse_fields(rest, kind, [])
 
-    definition = %Definition{
-      name: name_token.text,
-      kind: kind,
-      fields: Enum.reverse(fields),
-      line: name_token.line,
-      column: name_token.column
-    }
+    definition =
+      build_definition(
+        kind,
+        name_token.text,
+        Enum.reverse(members),
+        name_token.line,
+        name_token.column
+      )
 
     parse_definitions(rest, [definition | acc])
   end
@@ -98,6 +100,15 @@ defmodule KiwiCodec.Schema.Parser do
   defp parse_kind!(%Token{text: "struct"}), do: :struct
   defp parse_kind!(%Token{text: "message"}), do: :message
   defp parse_kind!(token), do: parse_error!(token, "expected definition kind")
+
+  defp build_definition(:enum, name, variants, line, column),
+    do: %SchemaEnum{name: name, variants: variants, line: line, column: column}
+
+  defp build_definition(:struct, name, fields, line, column),
+    do: %Struct{name: name, fields: fields, line: line, column: column}
+
+  defp build_definition(:message, name, fields, line, column),
+    do: %Message{name: name, fields: fields, line: line, column: column}
 
   defp parse_fields([%Token{text: "}"} | rest], _kind, acc), do: {acc, rest}
 
@@ -199,6 +210,14 @@ defmodule KiwiCodec.Schema.Parser do
     schema
   end
 
+  defp verify_field_names!(%SchemaEnum{} = definition) do
+    names = Enum.map(definition.variants, & &1.name)
+
+    if names != Enum.uniq(names) do
+      raise ArgumentError, "duplicate variant name in #{definition.name}"
+    end
+  end
+
   defp verify_field_names!(definition) do
     names = Enum.map(definition.fields, & &1.name)
 
@@ -207,17 +226,17 @@ defmodule KiwiCodec.Schema.Parser do
     end
   end
 
-  defp verify_member_ids!(%Definition{kind: :struct}), do: :ok
+  defp verify_member_ids!(%Struct{}), do: :ok
 
-  defp verify_member_ids!(%Definition{kind: :enum} = definition) do
-    values = Enum.map(definition.fields, & &1.value)
+  defp verify_member_ids!(%SchemaEnum{} = definition) do
+    values = Enum.map(definition.variants, & &1.value)
 
     if values != Enum.uniq(values) do
       raise ArgumentError, "duplicate enum value in #{definition.name}"
     end
   end
 
-  defp verify_member_ids!(%Definition{kind: :message} = definition) do
+  defp verify_member_ids!(%Message{} = definition) do
     ids = Enum.map(definition.fields, & &1.id)
 
     if ids != Enum.uniq(ids) do
@@ -225,7 +244,7 @@ defmodule KiwiCodec.Schema.Parser do
     end
   end
 
-  defp verify_field_types!(%Definition{kind: :enum}, _defined), do: :ok
+  defp verify_field_types!(%SchemaEnum{}, _defined), do: :ok
 
   defp verify_field_types!(definition, defined) do
     Enum.each(definition.fields, fn field ->

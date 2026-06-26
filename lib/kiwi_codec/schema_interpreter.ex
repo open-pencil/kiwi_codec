@@ -7,7 +7,8 @@ defmodule KiwiCodec.SchemaInterpreter do
   """
 
   alias KiwiCodec.Schema
-  alias KiwiCodec.Schema.{Definition, Field}
+  alias KiwiCodec.Schema.Enum, as: SchemaEnum
+  alias KiwiCodec.Schema.{Field, Message, Struct}
   alias KiwiCodec.Wire
   alias KiwiCodec.Wire.Varint
 
@@ -31,21 +32,21 @@ defmodule KiwiCodec.SchemaInterpreter do
     |> IO.iodata_to_binary()
   end
 
-  defp decode_definition(schema, %Definition{kind: :message} = definition, binary) do
+  defp decode_definition(schema, %Message{} = definition, binary) do
     decode_message(schema, definition, binary, %{})
   end
 
-  defp decode_definition(schema, %Definition{kind: :struct} = definition, binary) do
+  defp decode_definition(schema, %Struct{} = definition, binary) do
     Enum.reduce(definition.fields, {%{}, binary}, fn field, {acc, rest} ->
       {value, tail} = decode_wire_field(schema, field, rest)
       {Map.put(acc, field.name, value), tail}
     end)
   end
 
-  defp decode_definition(_schema, %Definition{kind: :enum} = definition, binary) do
+  defp decode_definition(_schema, %SchemaEnum{} = definition, binary) do
     {value, rest} = Varint.decode_uint(binary)
-    field = Enum.find(definition.fields, &(&1.value == value))
-    {if(field, do: field.name, else: value), rest}
+    variant = Enum.find(definition.variants, &(&1.value == value))
+    {if(variant, do: variant.name, else: value), rest}
   end
 
   defp decode_message(schema, definition, binary, acc) do
@@ -88,12 +89,12 @@ defmodule KiwiCodec.SchemaInterpreter do
     end
   end
 
-  defp encode_definition(schema, %Definition{kind: :message} = definition, value)
+  defp encode_definition(schema, %Message{} = definition, value)
        when is_map(value) do
     [Enum.map(definition.fields, &encode_message_field(schema, &1, value)), Varint.encode_uint(0)]
   end
 
-  defp encode_definition(schema, %Definition{kind: :struct} = definition, value)
+  defp encode_definition(schema, %Struct{} = definition, value)
        when is_map(value) do
     Enum.map(definition.fields, fn field ->
       field_value = fetch_value!(value, field.name)
@@ -101,13 +102,13 @@ defmodule KiwiCodec.SchemaInterpreter do
     end)
   end
 
-  defp encode_definition(_schema, %Definition{kind: :enum} = definition, value) do
+  defp encode_definition(_schema, %SchemaEnum{} = definition, value) do
     cond do
       is_integer(value) ->
         Varint.encode_uint(value)
 
       is_binary(value) ->
-        definition.fields
+        definition.variants
         |> Enum.find(&(&1.name == value))
         |> Map.fetch!(:value)
         |> Varint.encode_uint()

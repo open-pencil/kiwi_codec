@@ -1,6 +1,6 @@
-defmodule KiwiCodec.Wire.Float do
+defmodule KiwiCodec.Wire.VarFloat do
   @moduledoc """
-  Kiwi variable-length 32-bit float encoding.
+  Kiwi variable-length 32-bit float wire encoding.
 
   Kiwi stores IEEE-754 single-precision floats with the exponent byte rotated to
   the front so common small values can use a compact one-byte zero encoding.
@@ -10,16 +10,16 @@ defmodule KiwiCodec.Wire.Float do
 
   @uint32_mask 0xFFFF_FFFF
 
-  @spec encode_varfloat(float() | integer() | :infinity | :negative_infinity | :nan) :: binary()
-  def encode_varfloat(:infinity), do: encode_varfloat_bits(<<0, 0, 128, 127>>)
-  def encode_varfloat(:negative_infinity), do: encode_varfloat_bits(<<0, 0, 128, 255>>)
-  def encode_varfloat(:nan), do: encode_varfloat_bits(<<0, 0, 192, 127>>)
+  @spec encode(float() | integer() | :infinity | :negative_infinity | :nan) :: binary()
+  def encode(:infinity), do: encode_bits(<<0, 0, 128, 127>>)
+  def encode(:negative_infinity), do: encode_bits(<<0, 0, 128, 255>>)
+  def encode(:nan), do: encode_bits(<<0, 0, 192, 127>>)
 
-  def encode_varfloat(value) when is_number(value) do
-    encode_varfloat_bits(<<value::float-32-little>>)
+  def encode(value) when is_number(value) do
+    encode_bits(<<value::float-32-little>>)
   end
 
-  defp encode_varfloat_bits(<<raw::32-little>>) do
+  defp encode_bits(<<raw::32-little>>) do
     bits = (raw >>> 23 ||| raw <<< 9) &&& @uint32_mask
 
     if (bits &&& 0xFF) == 0 do
@@ -31,10 +31,10 @@ defmodule KiwiCodec.Wire.Float do
 
   @type value :: float() | :infinity | :negative_infinity | :nan
 
-  @spec decode_varfloat(binary()) :: {value(), binary()}
-  def decode_varfloat(<<0, rest::binary>>), do: {0.0, rest}
+  @spec decode(binary()) :: {value(), binary()}
+  def decode(<<0, rest::binary>>), do: {0.0, rest}
 
-  def decode_varfloat(<<bits::32-little, rest::binary>>) do
+  def decode(<<bits::32-little, rest::binary>>) do
     raw = (bits <<< 23 ||| bits >>> 9) &&& @uint32_mask
 
     value =
@@ -48,7 +48,7 @@ defmodule KiwiCodec.Wire.Float do
     {value, rest}
   end
 
-  def decode_varfloat(_binary) do
+  def decode(_binary) do
     raise KiwiCodec.DecodeError, message: "cannot decode varfloat"
   end
 

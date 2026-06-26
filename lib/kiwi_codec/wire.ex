@@ -6,7 +6,7 @@ defmodule KiwiCodec.Wire do
   compose primitive, struct, message, and repeated-field decoding.
   """
 
-  alias KiwiCodec.Wire.{Float, Varint}
+  alias KiwiCodec.Wire.{VarFloat, Varint}
 
   @type primitive_type :: :bool | :byte | :float | :int | :int64 | :string | :uint | :uint64
 
@@ -17,7 +17,7 @@ defmodule KiwiCodec.Wire do
 
   def encode(:float, value)
       when is_number(value) or value in [:infinity, :negative_infinity, :nan],
-      do: Float.encode_varfloat(value)
+      do: VarFloat.encode(value)
 
   def encode(:int, value), do: Varint.encode_int(value)
   def encode(:int64, value), do: Varint.encode_int64(value)
@@ -37,7 +37,7 @@ defmodule KiwiCodec.Wire do
   @spec decode(primitive_type(), binary()) :: {term(), binary()}
   def decode(:bool, <<value, rest::binary>>), do: {value != 0, rest}
   def decode(:byte, <<value, rest::binary>>), do: {value, rest}
-  def decode(:float, binary), do: Float.decode_varfloat(binary)
+  def decode(:float, binary), do: VarFloat.decode(binary)
   def decode(:int, binary), do: Varint.decode_int(binary)
   def decode(:int64, binary), do: Varint.decode_int64(binary)
   def decode(:string, binary), do: decode_string(binary)

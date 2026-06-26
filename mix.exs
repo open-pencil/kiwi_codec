@@ -72,8 +72,56 @@ defmodule KiwiCodec.MixProject do
     [
       main: "readme",
       extras: ["README.md", "CHANGELOG.md"],
+      groups_for_modules: docs_groups_for_modules(),
       source_ref: "v#{@version}",
       source_url: @source_url
+    ]
+  end
+
+  defp docs_groups_for_modules do
+    [
+      Schema: [
+        KiwiCodec.Metadata,
+        KiwiCodec.Metadata.Field,
+        KiwiCodec.Schema,
+        KiwiCodec.Schema.Enum,
+        KiwiCodec.Schema.EnumVariant,
+        KiwiCodec.Schema.Field,
+        KiwiCodec.Schema.Message,
+        KiwiCodec.Schema.Struct
+      ],
+      "Wire encoding": [
+        KiwiCodec.Wire,
+        KiwiCodec.Wire.VarFloat,
+        KiwiCodec.Wire.Varint
+      ],
+      Generation: [
+        KiwiCodec.FileGenerator,
+        KiwiCodec.ModuleCompiler,
+        KiwiCodec.ModuleGenerator,
+        KiwiCodec.RustlerGenerator
+      ],
+      "Implementation internals": [
+        KiwiCodec.DSL,
+        KiwiCodec.GeneratedModule.Metadata,
+        KiwiCodec.GeneratedModule.Shape,
+        KiwiCodec.GeneratedModule.TypeSpec,
+        KiwiCodec.PrimitiveType,
+        KiwiCodec.RustlerGenerator.DecoderMacro,
+        KiwiCodec.RustlerGenerator.Definition,
+        KiwiCodec.RustlerGenerator.Entrypoint,
+        KiwiCodec.RustlerGenerator.FieldExpr,
+        KiwiCodec.RustlerGenerator.Name,
+        KiwiCodec.RustlerGenerator.Selection,
+        KiwiCodec.RustlerGenerator.Splice,
+        KiwiCodec.Schema.Binary,
+        KiwiCodec.Schema.Binary.TypeIndex,
+        KiwiCodec.Schema.Parser,
+        KiwiCodec.Schema.Token,
+        KiwiCodec.Schema.Tokenizer,
+        KiwiCodec.Schema.Validator,
+        KiwiCodec.SchemaInterpreter
+      ]
     ]
   end
 end

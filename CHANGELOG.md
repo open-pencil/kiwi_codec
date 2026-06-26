@@ -19,6 +19,7 @@
 - Split Rustler generator definition emission, field expressions, and entrypoints into dedicated modules.
 - Split generated-module metadata, shape, and typespec emission out of `KiwiCodec.DSL`.
 - Split schema tokenization and validation out of `KiwiCodec.Schema.Parser`.
+- Group published HexDocs modules without hiding source documentation.
 
 ## v0.1.1 - 2026-06-25
 

@@ -22,6 +22,7 @@
 - Group published HexDocs modules without hiding source documentation.
 - Refresh README installation instructions for the latest released version.
 - Infer Rustler generator entrypoint names and selected definitions from requested schema definitions.
+- Render Rustler generator source prelude with RustQ AST imports instead of raw Rust strings.
 
 ## v0.1.1 - 2026-06-25
 

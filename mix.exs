@@ -2,7 +2,7 @@ defmodule KiwiCodec.MixProject do
   use Mix.Project
 
   @version "0.2.0"
-  @source_url "https://github.com/dannote/kiwi_codec"
+  @source_url "https://github.com/open-pencil/kiwi_codec"
 
   def project do
     [

@@ -24,7 +24,7 @@ defmodule KiwiCodec.Decoder do
 
   defp decode_from_module(binary, module) do
     {value, rest} =
-      case module.__kiwi_props__() do
+      case module.__kiwi_metadata__() do
         %Metadata{kind: :message} = metadata -> decode_message(binary, struct(module), metadata)
         %Metadata{kind: :struct} = metadata -> decode_struct(binary, struct(module), metadata)
       end

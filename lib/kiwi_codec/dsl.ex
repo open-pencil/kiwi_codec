@@ -44,8 +44,8 @@ defmodule KiwiCodec.DSL do
     type_fields = Enum.map(fields, &type_field/1)
 
     quote do
-      @spec __kiwi_props__() :: KiwiCodec.Metadata.t()
-      def __kiwi_props__, do: unquote(Macro.escape(metadata))
+      @spec __kiwi_metadata__() :: KiwiCodec.Metadata.t()
+      def __kiwi_metadata__, do: unquote(Macro.escape(metadata))
 
       def __kiwi_definition__,
         do: unquote(Macro.escape(%{kind: kind, fields: metadata.ordered_fields}))
@@ -83,8 +83,8 @@ defmodule KiwiCodec.DSL do
     quote do
       @type t() :: unquote(enum_type) | integer()
 
-      def key(value), do: Map.get(__kiwi_props__().enum_by_value, value, value)
-      def value(name), do: Map.fetch!(__kiwi_props__().enum_by_name, name)
+      def key(value), do: Map.get(__kiwi_metadata__().enum_by_value, value, value)
+      def value(name), do: Map.fetch!(__kiwi_metadata__().enum_by_name, name)
     end
   end
 

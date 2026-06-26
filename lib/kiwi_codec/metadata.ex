@@ -2,7 +2,7 @@ defmodule KiwiCodec.Metadata do
   @moduledoc """
   Compiled metadata attached to generated Kiwi modules.
 
-  Generated modules expose this metadata through `__kiwi_props__/0` so encoders,
+  Generated modules expose this metadata through `__kiwi_metadata__/0` so encoders,
   decoders, inspectors, and tooling can work from one normalized description of
   fields, enum values, and definition kind.
   """

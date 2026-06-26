@@ -8,7 +8,7 @@ defmodule KiwiCodec.Inspect do
   alias KiwiCodec.Metadata
 
   def inspect(%module{} = value, opts) do
-    metadata = module.__kiwi_props__()
+    metadata = module.__kiwi_metadata__()
 
     {fields, more?} =
       metadata.ordered_fields |> visible_fields(metadata, value) |> limit_fields(opts)

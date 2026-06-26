@@ -5,6 +5,8 @@
 - Delegate LEB128/ZigZag integer encoding to the `varint` package while keeping Kiwi-specific range and error handling.
 - Replace vague `FieldProps`/`MessageProps` modules with `KiwiCodec.Metadata` and `KiwiCodec.Metadata.Field`.
 - Rename the Kiwi variable-length float wire module to `KiwiCodec.Wire.VarFloat`.
+- Rename generated module metadata API from `__kiwi_props__/0` to `__kiwi_metadata__/0`.
+- Split Rustler generator naming, selection, helper splice, and decoder macro concerns into dedicated modules.
 
 ## v0.1.1 - 2026-06-25
 

@@ -19,6 +19,9 @@ defmodule KiwiCodec.RustlerGenerator do
   minimal RustQ template skeleton.
   """
 
+  alias KiwiCodec.RustlerGenerator.Name
+  alias KiwiCodec.RustlerGenerator.Selection
+  alias KiwiCodec.RustlerGenerator.Splice
   alias KiwiCodec.Schema
   alias KiwiCodec.Schema.Definition
   alias RustQ.Meta.AST, as: MetaAST
@@ -77,53 +80,14 @@ defmodule KiwiCodec.RustlerGenerator do
     entrypoints = Keyword.get(opts, :entrypoints, [])
     module_prefix = Keyword.fetch!(opts, :module_prefix)
 
-    definition_map = Map.new(schema.definitions, &{&1.name, &1})
-    selected = select_definitions(schema, definitions, definition_map)
+    definition_map = Selection.definition_map(schema)
+    selected = Selection.definitions(schema, definitions, definition_map)
 
     [
-      {:rustler_helpers, rustler_helper_fragments()},
+      {:rustler_helpers, Splice.rustler_helpers()},
       {:definitions, definition_fragments(selected, module_prefix, definition_map)},
       {:entrypoints, entrypoint_fragments(entrypoints)}
     ] ++ Keyword.get(opts, :extra_splices, [])
-  end
-
-  defp rustler_helper_fragments do
-    RustQ.Rustler.cached_atoms([]) ++
-      RustQ.Rustler.term_helpers(
-        include: [
-          :cached_struct_keys,
-          :default_struct_values,
-          :make_struct_from_nif_term_arrays
-        ]
-      )
-  end
-
-  defp select_definitions(%Schema{} = schema, [], _definition_map), do: schema.definitions
-
-  defp select_definitions(%Schema{} = schema, names, definition_map) do
-    names
-    |> Enum.map(&to_string/1)
-    |> include_dependencies(definition_map, MapSet.new())
-    |> then(fn selected_names ->
-      Enum.filter(schema.definitions, &MapSet.member?(selected_names, &1.name))
-    end)
-  end
-
-  defp include_dependencies([], _definition_map, acc), do: acc
-
-  defp include_dependencies([name | names], definition_map, acc) do
-    if MapSet.member?(acc, name) do
-      include_dependencies(names, definition_map, acc)
-    else
-      definition = Map.fetch!(definition_map, name)
-
-      dependencies =
-        definition.fields
-        |> Enum.map(& &1.type)
-        |> Enum.filter(&Map.has_key?(definition_map, &1))
-
-      include_dependencies(names ++ dependencies, definition_map, MapSet.put(acc, name))
-    end
   end
 
   defp definition_fragments(definitions, module_prefix, definition_map) do
@@ -137,7 +101,7 @@ defmodule KiwiCodec.RustlerGenerator do
       definition.fields
       |> Enum.with_index()
       |> Enum.map(fn {_field, index} ->
-        atom_static(enum_variant_atom_static(definition.name, index))
+        atom_static(Name.enum_variant_atom_static(definition.name, index))
       end)
 
     variant_statics ++ [enum_decoder_item(definition)]
@@ -145,16 +109,16 @@ defmodule KiwiCodec.RustlerGenerator do
 
   defp definition_items(%Definition{kind: :struct} = definition, module_prefix, definition_map) do
     [
-      atom_static(module_atom_static(definition.name)),
-      keys_static(struct_keys_static(definition.name)),
+      atom_static(Name.module_atom_static(definition.name)),
+      keys_static(Name.struct_keys_static(definition.name)),
       struct_decoder_item(definition, module_prefix, definition_map)
     ]
   end
 
   defp definition_items(%Definition{kind: :message} = definition, module_prefix, definition_map) do
     [
-      atom_static(module_atom_static(definition.name)),
-      keys_static(struct_keys_static(definition.name)),
+      atom_static(Name.module_atom_static(definition.name)),
+      keys_static(Name.struct_keys_static(definition.name)),
       message_decoder_item(definition, module_prefix, definition_map),
       message_fields_decoder_item(definition, module_prefix, definition_map)
     ]
@@ -173,7 +137,7 @@ defmodule KiwiCodec.RustlerGenerator do
   defp enum_decoder_item(%Definition{} = definition) do
     definition
     |> generated_enum_module!()
-    |> MetaAST.item(decoder_function_name(definition.name))
+    |> MetaAST.item(Name.decoder_function(definition.name))
   end
 
   defp generated_enum_module!(%Definition{} = definition) do
@@ -192,19 +156,19 @@ defmodule KiwiCodec.RustlerGenerator do
         |> Enum.map(fn {field, index} ->
           {
             field.value,
-            static_alias(enum_variant_atom_static(definition.name, index)),
-            field_name(field.name)
+            Name.static_alias(Name.enum_variant_atom_static(definition.name, index)),
+            Name.field_name(field.name)
           }
         end)
 
-      name = decoder_function_name(definition.name)
+      name = Name.decoder_function(definition.name)
 
       Module.create(
         module,
         quote do
           use RustQ.Meta
           alias RustQ.Type, as: R
-          import KiwiCodec.RustlerGenerator.Rusty, only: [enum_decoder: 2]
+          import KiwiCodec.RustlerGenerator.DecoderMacro, only: [enum_decoder: 2]
 
           enum_decoder(
             unquote(name),
@@ -221,7 +185,7 @@ defmodule KiwiCodec.RustlerGenerator do
   defp struct_decoder_item(%Definition{} = definition, module_prefix, definition_map) do
     definition
     |> generated_struct_module!(module_prefix, definition_map)
-    |> MetaAST.item(decoder_function_name(definition.name))
+    |> MetaAST.item(Name.decoder_function(definition.name))
   end
 
   defp generated_struct_module!(%Definition{} = definition, module_prefix, definition_map) do
@@ -234,7 +198,7 @@ defmodule KiwiCodec.RustlerGenerator do
     if Code.ensure_loaded?(module) do
       module
     else
-      name = decoder_function_name(definition.name)
+      name = Name.decoder_function(definition.name)
       field_exprs = Enum.map(definition.fields, &field_value_expr(&1, definition_map))
 
       Module.create(
@@ -242,14 +206,14 @@ defmodule KiwiCodec.RustlerGenerator do
         quote do
           use RustQ.Meta
           alias RustQ.Type, as: R
-          import KiwiCodec.RustlerGenerator.Rusty, only: [struct_decoder: 6]
+          import KiwiCodec.RustlerGenerator.DecoderMacro, only: [struct_decoder: 6]
 
           struct_decoder(
             unquote(name),
-            unquote(module_atom_static(definition.name)),
-            unquote(struct_keys_static(definition.name)),
-            unquote(module_name(module_prefix, definition.name)),
-            unquote(Enum.map(definition.fields, &field_name(&1.name))),
+            unquote(Name.module_atom_static(definition.name)),
+            unquote(Name.struct_keys_static(definition.name)),
+            unquote(Name.module_name(module_prefix, definition.name)),
+            unquote(Enum.map(definition.fields, &Name.field_name(&1.name))),
             unquote(Macro.escape(field_exprs))
           )
         end,
@@ -263,13 +227,13 @@ defmodule KiwiCodec.RustlerGenerator do
   defp message_decoder_item(%Definition{} = definition, module_prefix, definition_map) do
     definition
     |> generated_message_module!(module_prefix, definition_map)
-    |> MetaAST.item(decoder_function_name(definition.name))
+    |> MetaAST.item(Name.decoder_function(definition.name))
   end
 
   defp message_fields_decoder_item(%Definition{} = definition, module_prefix, definition_map) do
     definition
     |> generated_message_module!(module_prefix, definition_map)
-    |> MetaAST.item(message_fields_function_name(definition.name))
+    |> MetaAST.item(Name.message_fields_function(definition.name))
   end
 
   defp generated_message_module!(%Definition{} = definition, module_prefix, definition_map) do
@@ -282,8 +246,8 @@ defmodule KiwiCodec.RustlerGenerator do
     if Code.ensure_loaded?(module) do
       module
     else
-      decoder_name = decoder_function_name(definition.name)
-      fields_name = message_fields_function_name(definition.name)
+      decoder_name = Name.decoder_function(definition.name)
+      fields_name = Name.message_fields_function(definition.name)
 
       fields =
         definition.fields
@@ -292,7 +256,7 @@ defmodule KiwiCodec.RustlerGenerator do
           {field.value, index + 1, field_value_expr(field, definition_map)}
         end)
 
-      module_name = module_name(module_prefix, definition.name)
+      module_name = Name.module_name(module_prefix, definition.name)
 
       Module.create(
         module,
@@ -300,16 +264,16 @@ defmodule KiwiCodec.RustlerGenerator do
           use RustQ.Meta
           alias RustQ.Type, as: R
 
-          import KiwiCodec.RustlerGenerator.Rusty,
+          import KiwiCodec.RustlerGenerator.DecoderMacro,
             only: [message_decoder: 6, message_fields_decoder: 2]
 
           message_decoder(
             unquote(decoder_name),
             unquote(fields_name),
-            unquote(module_atom_static(definition.name)),
-            unquote(struct_keys_static(definition.name)),
+            unquote(Name.module_atom_static(definition.name)),
+            unquote(Name.struct_keys_static(definition.name)),
             unquote(module_name),
-            unquote(Enum.map(definition.fields, &field_name(&1.name)))
+            unquote(Enum.map(definition.fields, &Name.field_name(&1.name)))
           )
 
           message_fields_decoder(unquote(fields_name), unquote(Macro.escape(fields)))
@@ -340,7 +304,7 @@ defmodule KiwiCodec.RustlerGenerator do
       field
       |> referenced_definition!(definition_map)
       |> then(fn definition ->
-        name = decoder_function_name(definition.name)
+        name = Name.decoder_function(definition.name)
 
         quote do
           unquote(name)(env, decoder)
@@ -363,7 +327,7 @@ defmodule KiwiCodec.RustlerGenerator do
 
   defp generated_entrypoint_module!(nif_name, definition_name) do
     nif_name = RustQ.Atom.identifier!(to_string(nif_name))
-    decoder_name = decoder_function_name(definition_name)
+    decoder_name = Name.decoder_function(definition_name)
 
     module =
       Module.concat([
@@ -379,7 +343,7 @@ defmodule KiwiCodec.RustlerGenerator do
         quote do
           use RustQ.Meta
           alias RustQ.Type, as: R
-          import KiwiCodec.RustlerGenerator.Rusty, only: [entrypoint: 2]
+          import KiwiCodec.RustlerGenerator.DecoderMacro, only: [entrypoint: 2]
 
           entrypoint(unquote(nif_name), unquote(decoder_name))
         end,
@@ -391,38 +355,4 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp fragment_code(fragment), do: RustQ.Rust.to_fragment(fragment)
-
-  defp decoder_name(name), do: "decode_#{rust_ident(name)}"
-
-  defp decoder_function_name(name),
-    do: name |> decoder_name() |> Kernel.<>("_from_decoder") |> RustQ.Atom.identifier!()
-
-  defp message_fields_function_name(name),
-    do: name |> decoder_name() |> Kernel.<>("_fields_from_decoder") |> RustQ.Atom.identifier!()
-
-  defp module_atom_static(name), do: static_name(name, "MODULE_ATOM")
-  defp struct_keys_static(name), do: static_name(name, "STRUCT_KEYS")
-  defp enum_variant_atom_static(name, index), do: static_name(name, "ATOM_#{index}")
-
-  defp static_alias(name), do: {:__aliases__, [], [name]}
-
-  defp static_name(name, suffix) do
-    name
-    |> rust_ident()
-    |> String.upcase()
-    |> Kernel.<>("_#{suffix}")
-    |> RustQ.Atom.identifier!()
-  end
-
-  defp module_name(module_prefix, name) do
-    "Elixir.#{module_prefix}.#{name}"
-  end
-
-  defp field_name(name), do: Macro.underscore(name)
-
-  defp rust_ident(name) do
-    name
-    |> Macro.underscore()
-    |> String.replace(~r/[^a-zA-Z0-9_]/, "_")
-  end
 end

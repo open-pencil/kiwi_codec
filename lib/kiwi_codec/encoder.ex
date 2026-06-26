@@ -15,14 +15,14 @@ defmodule KiwiCodec.Encoder do
   def encode_to_iodata(%module{} = struct, module) do
     struct
     |> transform(module)
-    |> encode_with_props(module.__kiwi_props__())
+    |> encode_with_metadata(module.__kiwi_metadata__())
   end
 
-  defp encode_with_props(struct, %Metadata{kind: :message, ordered_fields: fields}) do
+  defp encode_with_metadata(struct, %Metadata{kind: :message, ordered_fields: fields}) do
     [Enum.map(fields, &encode_message_field(&1, struct)), Varint.encode_uint(0)]
   end
 
-  defp encode_with_props(struct, %Metadata{kind: :struct, ordered_fields: fields}) do
+  defp encode_with_metadata(struct, %Metadata{kind: :struct, ordered_fields: fields}) do
     Enum.map(fields, &encode_required_field(&1, struct))
   end
 

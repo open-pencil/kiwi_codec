@@ -8,7 +8,7 @@ defmodule KiwiCodec.MetadataTest do
   end
 
   test "field metadata preserves source schema names" do
-    field = Node.__kiwi_props__().fields_by_name.session_id
+    field = Node.__kiwi_metadata__().fields_by_name.session_id
 
     assert field.name == :session_id
     assert field.source_name == "sessionID"

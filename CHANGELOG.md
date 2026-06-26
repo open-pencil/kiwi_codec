@@ -11,6 +11,8 @@
 - Clarify generated-codec and runtime helper names around definitions, wire fields, and wire types.
 - Replace caller-owned Rustler templates with `KiwiCodec.RustlerGenerator.source/2` for complete generated Rust source.
 - Centralize Kiwi primitive type metadata in `KiwiCodec.PrimitiveType`.
+- Rename schema runtime interpretation to `KiwiCodec.SchemaInterpreter`.
+- Split vague `KiwiCodec.Compiler` responsibilities into `KiwiCodec.ModuleCompiler` and `KiwiCodec.FileGenerator`.
 
 ## v0.1.1 - 2026-06-25
 

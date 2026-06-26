@@ -60,7 +60,7 @@ defmodule KiwiCodec.SchemaTest do
     end
   end
 
-  test "runtime encode and decode" do
+  test "schema interpreter encode and decode" do
     schema = Parser.parse!(@schema_text)
 
     value = %{
@@ -72,9 +72,9 @@ defmodule KiwiCodec.SchemaTest do
       "blob" => <<1, 2, 3>>
     }
 
-    binary = KiwiCodec.Runtime.encode(schema, "NodeChange", value)
+    binary = KiwiCodec.SchemaInterpreter.encode(schema, "NodeChange", value)
 
-    assert KiwiCodec.Runtime.decode(schema, "NodeChange", binary) == value
+    assert KiwiCodec.SchemaInterpreter.decode(schema, "NodeChange", binary) == value
   end
 
   defp clear_locations(schema) do

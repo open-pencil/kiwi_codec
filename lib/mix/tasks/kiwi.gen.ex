@@ -32,7 +32,7 @@ defmodule Mix.Tasks.Kiwi.Gen do
 
     schema_path
     |> File.read!()
-    |> KiwiCodec.Compiler.generate_files!(module_prefix: module_prefix, out: out)
+    |> KiwiCodec.FileGenerator.generate_files!(module_prefix: module_prefix, out: out)
     |> Enum.each(fn path -> Mix.shell().info("* creating #{path}") end)
   end
 end

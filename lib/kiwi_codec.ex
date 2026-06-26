@@ -37,7 +37,7 @@ defmodule KiwiCodec do
   `mix kiwi.gen` task so generated modules are written to source files.
   """
   @spec compile_schema!(String.t(), keyword()) :: [module()]
-  defdelegate compile_schema!(text, opts), to: KiwiCodec.Compiler, as: :compile_string!
+  defdelegate compile_schema!(text, opts), to: KiwiCodec.ModuleCompiler, as: :compile_string!
 
   @doc """
   Encodes a Kiwi struct.

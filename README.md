@@ -10,7 +10,7 @@ KiwiCodec owns:
 
 - Kiwi wire primitives: varuint, zigzag int, uint64/int64, varfloat, null-terminated strings, and length-prefixed byte arrays
 - `.kiwi` schema parsing and validation
-- Runtime interpretation for parsed schemas
+- Schema interpretation for parsed schemas
 - Field metadata, including original schema field names
 - An idiomatic Elixir DSL and code generator for static modules
 - Generic chunk container helpers
@@ -59,14 +59,14 @@ KiwiCodec.compile_schema!(schema_text, module_prefix: MyApp.Schema)
 
 `KiwiCodec.parse_schema!/1` only parses schema text into an AST. It does not create modules by itself.
 
-## Runtime interpretation
+## Schema interpretation
 
-When a schema is loaded at runtime and you do not want to generate modules, use `KiwiCodec.Runtime`:
+When a schema is loaded at runtime and you do not want to generate modules, use `KiwiCodec.SchemaInterpreter`:
 
 ```elixir
 schema = KiwiCodec.parse_schema!(schema_text)
-binary = KiwiCodec.Runtime.encode(schema, "Thing", %{"id" => 1, "name" => "demo"})
-value = KiwiCodec.Runtime.decode(schema, "Thing", binary)
+binary = KiwiCodec.SchemaInterpreter.encode(schema, "Thing", %{"id" => 1, "name" => "demo"})
+value = KiwiCodec.SchemaInterpreter.decode(schema, "Thing", binary)
 ```
 
 ## Transform modules

@@ -1,4 +1,4 @@
-defmodule KiwiCodec.CompilerTest do
+defmodule KiwiCodec.ModuleCompilerTest do
   use ExUnit.Case, async: true
 
   @schema_text """
@@ -10,7 +10,9 @@ defmodule KiwiCodec.CompilerTest do
 
   test "compiles schema text into modules" do
     modules =
-      KiwiCodec.Compiler.compile_string!(@schema_text, module_prefix: KiwiCodec.GeneratedTest)
+      KiwiCodec.ModuleCompiler.compile_string!(@schema_text,
+        module_prefix: KiwiCodec.GeneratedTest
+      )
 
     assert KiwiCodec.GeneratedTest.CompilerThing in modules
 
@@ -29,7 +31,7 @@ defmodule KiwiCodec.CompilerTest do
 
     try do
       assert [path] =
-               KiwiCodec.Compiler.generate_files!(@schema_text,
+               KiwiCodec.FileGenerator.generate_files!(@schema_text,
                  module_prefix: KiwiCodec.GeneratedFiles,
                  out: tmp
                )

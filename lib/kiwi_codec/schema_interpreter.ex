@@ -1,8 +1,8 @@
-defmodule KiwiCodec.Runtime do
+defmodule KiwiCodec.SchemaInterpreter do
   @moduledoc """
   Interpreter for parsed Kiwi schemas without generated modules.
 
-  Prefer generated modules for application code. This runtime is useful for
+  Prefer generated modules for application code. This interpreter is useful for
   tooling, inspection, and compatibility tests where schemas are loaded at runtime.
   """
 

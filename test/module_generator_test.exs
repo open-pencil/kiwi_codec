@@ -1,4 +1,4 @@
-defmodule KiwiCodec.GeneratorTest do
+defmodule KiwiCodec.ModuleGeneratorTest do
   use ExUnit.Case, async: true
 
   test "generates modules from schema" do
@@ -15,7 +15,7 @@ defmodule KiwiCodec.GeneratorTest do
       """)
 
     files =
-      KiwiCodec.Generator.generate(schema,
+      KiwiCodec.ModuleGenerator.generate(schema,
         module_prefix: Generated.Schema,
         base_path: "tmp/generated"
       )

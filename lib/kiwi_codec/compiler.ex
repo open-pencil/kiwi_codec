@@ -23,7 +23,7 @@ defmodule KiwiCodec.Compiler do
   @spec compile_schema!(KiwiCodec.Schema.t(), keyword()) :: [module()]
   def compile_schema!(schema, opts) when is_list(opts) do
     schema
-    |> KiwiCodec.Generator.generate(module_prefix: module_prefix!(opts), base_path: "")
+    |> KiwiCodec.ModuleGenerator.generate(module_prefix: module_prefix!(opts), base_path: "")
     |> Enum.flat_map(fn {_path, code} -> Code.compile_string(code) end)
     |> Enum.map(&elem(&1, 0))
   end
@@ -46,7 +46,7 @@ defmodule KiwiCodec.Compiler do
     out = Keyword.get(opts, :out, "lib")
 
     schema
-    |> KiwiCodec.Generator.generate(module_prefix: module_prefix!(opts), base_path: out)
+    |> KiwiCodec.ModuleGenerator.generate(module_prefix: module_prefix!(opts), base_path: out)
     |> Enum.map(fn {path, content} ->
       File.mkdir_p!(Path.dirname(path))
       File.write!(path, content)

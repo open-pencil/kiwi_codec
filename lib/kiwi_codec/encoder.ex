@@ -32,7 +32,7 @@ defmodule KiwiCodec.Encoder do
     if is_nil(value) do
       []
     else
-      [Varint.encode_uint(field.id), encode_field_value(field, value)]
+      [Varint.encode_uint(field.id), encode_wire_field(field, value)]
     end
   rescue
     error in [KiwiCodec.EncodeError, ArgumentError, FunctionClauseError, KeyError, MatchError] ->
@@ -46,41 +46,41 @@ defmodule KiwiCodec.Encoder do
       raise KiwiCodec.EncodeError, message: "missing required field #{inspect(name)}"
     end
 
-    encode_field_value(field, value)
+    encode_wire_field(field, value)
   rescue
     error in [KiwiCodec.EncodeError, ArgumentError, FunctionClauseError, KeyError, MatchError] ->
       raise_encode_field_error(struct.__struct__, field, error)
   end
 
-  defp encode_field_value(%Field{repeated?: true, type: :byte}, value)
+  defp encode_wire_field(%Field{repeated?: true, type: :byte}, value)
        when is_binary(value) do
     Wire.encode_byte_array(value)
   end
 
-  defp encode_field_value(%Field{repeated?: true} = field, values) when is_list(values) do
-    [Varint.encode_uint(length(values)), Enum.map(values, &encode_scalar(field.type, &1))]
+  defp encode_wire_field(%Field{repeated?: true} = field, values) when is_list(values) do
+    [Varint.encode_uint(length(values)), Enum.map(values, &encode_wire_type(field.type, &1))]
   end
 
-  defp encode_field_value(%Field{} = field, value) do
-    encode_scalar(field.type, value)
+  defp encode_wire_field(%Field{} = field, value) do
+    encode_wire_type(field.type, value)
   end
 
-  defp encode_scalar({:enum, module}, value) when is_atom(value) do
+  defp encode_wire_type({:enum, module}, value) when is_atom(value) do
     module.value(value)
     |> Varint.encode_uint()
   end
 
-  defp encode_scalar({:enum, _module}, value) when is_integer(value),
+  defp encode_wire_type({:enum, _module}, value) when is_integer(value),
     do: Varint.encode_uint(value)
 
-  defp encode_scalar(type, value)
+  defp encode_wire_type(type, value)
        when type in [:bool, :byte, :float, :int, :int64, :string, :uint, :uint64],
        do: Wire.encode(type, value)
 
-  defp encode_scalar(module, %module{} = value) when is_atom(module),
+  defp encode_wire_type(module, %module{} = value) when is_atom(module),
     do: encode_to_iodata(value, module)
 
-  defp encode_scalar(type, value) do
+  defp encode_wire_type(type, value) do
     raise KiwiCodec.EncodeError, message: "invalid #{inspect(value)} for type #{inspect(type)}"
   end
 

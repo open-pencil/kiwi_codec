@@ -1,6 +1,6 @@
-defmodule KiwiCodec.Generator do
+defmodule KiwiCodec.ModuleGenerator do
   @moduledoc """
-  Generates Elixir modules from parsed Kiwi schemas.
+  Generates Elixir source modules from parsed Kiwi schemas.
   """
 
   alias KiwiCodec.Schema

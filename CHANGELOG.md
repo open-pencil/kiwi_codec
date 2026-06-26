@@ -7,6 +7,8 @@
 - Rename the Kiwi variable-length float wire module to `KiwiCodec.Wire.VarFloat`.
 - Rename generated module metadata API from `__kiwi_props__/0` to `__kiwi_metadata__/0`.
 - Split Rustler generator naming, selection, helper splice, and decoder macro concerns into dedicated modules.
+- Rename generated Elixir source rendering from `KiwiCodec.Generator` to `KiwiCodec.ModuleGenerator`.
+- Clarify generated-codec and runtime helper names around definitions, wire fields, and wire types.
 
 ## v0.1.1 - 2026-06-25
 

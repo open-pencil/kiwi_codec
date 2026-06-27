@@ -161,8 +161,8 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
   end
 
   defp field_expr(%{array?: true} = field, definition_map) do
-    inner = field_expr(%{field | array?: false}, definition_map)
-    ["decoder.read_repeated(|decoder| Ok(", inner, "))?"]
+    inner = array_field_expr(%{field | array?: false}, definition_map)
+    ["decoder.read_repeated(|decoder| ", inner, ")?"]
   end
 
   defp field_expr(%{type: type}, definition_map) do
@@ -175,6 +175,19 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
 
       expr ->
         expr
+    end
+  end
+
+  defp array_field_expr(%{type: type}, definition_map) do
+    case RustExpr.primitive(type) do
+      nil ->
+        [
+          RustExpr.ident(Name.decoder_function(Map.fetch!(definition_map, type).name)),
+          "(env, decoder)"
+        ]
+
+      expr ->
+        String.trim_trailing(expr, "?")
     end
   end
 

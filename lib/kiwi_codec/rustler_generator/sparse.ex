@@ -121,8 +121,8 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   end
 
   defp field_expr(%{array?: true} = field, definition_map) do
-    inner = scalar_expr(%{field | array?: false}, definition_map)
-    ["decoder.read_repeated(|decoder| Ok(", inner, "))?.encode(env)"]
+    inner = array_scalar_expr(%{field | array?: false}, definition_map)
+    ["decoder.read_repeated(|decoder| ", inner, ")?.encode(env)"]
   end
 
   defp field_expr(field, definition_map) do
@@ -136,6 +136,16 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
 
       Map.has_key?(definition_map, type) ->
         ["decode_sparse_", RustExpr.ident(type), "_from_decoder(env, decoder)?"]
+    end
+  end
+
+  defp array_scalar_expr(%{type: type}, definition_map) do
+    cond do
+      primitive = RustExpr.primitive(type) ->
+        String.trim_trailing(primitive, "?")
+
+      Map.has_key?(definition_map, type) ->
+        ["decode_sparse_", RustExpr.ident(type), "_from_decoder(env, decoder)"]
     end
   end
 

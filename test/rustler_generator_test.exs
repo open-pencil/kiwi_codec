@@ -228,6 +228,35 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     refute generated =~ "fn decode_image_from_decoder<'a>"
   end
 
+  test "sparse enum decoders delegate to full enum decoders when full decoders are present" do
+    schema_source = """
+    enum Kind {
+      Rectangle = 1;
+    }
+
+    message Image {
+      Kind kind = 1;
+    }
+    """
+
+    {generated, _config} =
+      generate_with_rustq_gen!(schema_source,
+        definitions: ["Image"],
+        features: [:full, :sparse],
+        module_prefix: "Example.Schema"
+      )
+
+    assert generated =~ "fn decode_kind_from_decoder;"
+
+    assert generated =~
+             "fn decode_sparse_kind_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>>"
+
+    assert generated =~ "decode_kind_from_decoder(env, decoder)"
+
+    assert generated =~
+             "1 => \"kind\": decode_sparse_kind_from_decoder(env, decoder)?.encode(env);"
+  end
+
   test "infers entrypoints for every schema definition" do
     schema_source = """
     enum Kind {

@@ -237,6 +237,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         };
     }
 
+    #[allow(unused_macros)]
     macro_rules! kiwi_sparse_enum_decoder {
         (
             fn $name:ident;

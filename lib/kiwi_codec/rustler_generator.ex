@@ -81,10 +81,17 @@ defmodule KiwiCodec.RustlerGenerator do
 
   defp feature_fragments(features, selected, module_prefix, definition_map) do
     Enum.flat_map(features, fn
-      :full -> Definition.fragments(selected, module_prefix, definition_map)
-      :sparse -> Sparse.fragments(selected, module_prefix, definition_map)
-      :skip -> Skip.fragments(selected, definition_map)
-      feature -> raise ArgumentError, "unknown Rustler generator feature #{inspect(feature)}"
+      :full ->
+        Definition.fragments(selected, module_prefix, definition_map)
+
+      :sparse ->
+        Sparse.fragments(selected, module_prefix, definition_map, full?: :full in features)
+
+      :skip ->
+        Skip.fragments(selected, definition_map)
+
+      feature ->
+        raise ArgumentError, "unknown Rustler generator feature #{inspect(feature)}"
     end)
   end
 

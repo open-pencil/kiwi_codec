@@ -1,6 +1,10 @@
 defmodule KiwiCodec.RustlerGenerator.Splice do
   @moduledoc """
   Static RustQ splice fragments required by generated Rustler decoders.
+
+  The Rust source below is an intentional escape boundary: generated schema code
+  targets these compact Rust macros so high-level Elixir generators can stay
+  semantic without expanding large repetitive Rust bodies.
   """
 
   @spec rustler_helpers() :: [RustQ.Rust.Fragment.t()]
@@ -17,7 +21,17 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   end
 
   defp decoder_macros do
-    RustQ.Rust.item(~S'''
+    RustQ.Rust.item([
+      full_decoder_macros(),
+      "\n",
+      skip_decoder_helpers(),
+      "\n",
+      sparse_decoder_macros()
+    ])
+  end
+
+  defp full_decoder_macros do
+    ~S'''
     macro_rules! kiwi_enum_decoder {
         (
             fn $name:ident;
@@ -96,7 +110,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
             }
         };
     }
+    '''
+  end
 
+  defp skip_decoder_helpers do
+    ~S'''
     type KiwiSkipFn = fn(&mut Decoder<'_>) -> NifResult<()>;
 
     enum KiwiSkipKind {
@@ -236,7 +254,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
             }
         };
     }
+    '''
+  end
 
+  defp sparse_decoder_macros do
+    ~S'''
     #[allow(unused_macros)]
     macro_rules! kiwi_sparse_enum_decoder {
         (
@@ -320,6 +342,6 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
             }
         };
     }
-    ''')
+    '''
   end
 end

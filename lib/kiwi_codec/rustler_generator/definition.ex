@@ -3,6 +3,7 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
   Generates Rust items for Kiwi schema definitions.
   """
 
+  alias KiwiCodec.RustlerGenerator.DecoderMacro
   alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.RustlerGenerator.RustExpr
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
@@ -18,14 +19,14 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
   end
 
   defp items(%SchemaEnum{} = definition, _module_prefix, _definition_map) do
-    [enum_decoder_item(definition)]
+    [DecoderMacro.enum_decoder(definition)]
   end
 
   defp items(%Struct{} = definition, module_prefix, definition_map) do
     [
       atom_static(Name.module_atom_static(definition.name)),
       keys_static(Name.struct_keys_static(definition.name)),
-      struct_decoder_item(definition, module_prefix, definition_map)
+      DecoderMacro.struct_decoder(definition, module_prefix, definition_map, &field_expr/2)
     ]
   end
 
@@ -33,7 +34,7 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
     [
       atom_static(Name.module_atom_static(definition.name)),
       keys_static(Name.struct_keys_static(definition.name)),
-      message_decoder_item(definition, module_prefix, definition_map)
+      DecoderMacro.message_decoder(definition, module_prefix, definition_map, &field_expr/2)
     ]
   end
 
@@ -45,100 +46,6 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
     Rust.ast_item(
       A.static(name, "OnceLock<Vec<rustler::wrapper::NIF_TERM>>", A.path_call([:OnceLock, :new]))
     )
-  end
-
-  defp enum_decoder_item(%SchemaEnum{} = definition) do
-    variants =
-      definition.variants
-      |> Enum.map(fn field ->
-        [Integer.to_string(field.value), " => ", inspect(Name.field_name(field.name)), ";"]
-      end)
-      |> Enum.intersperse("\n")
-
-    Rust.item([
-      "kiwi_enum_decoder! {\n",
-      "    fn ",
-      RustExpr.ident(Name.decoder_function(definition.name)),
-      ";\n",
-      "    variants [\n",
-      RustExpr.indent(variants, 8),
-      "\n    ]\n",
-      "}"
-    ])
-  end
-
-  defp struct_decoder_item(%Struct{} = definition, module_prefix, definition_map) do
-    field_exprs = Enum.map(definition.fields, &field_expr(&1, definition_map))
-
-    Rust.item([
-      "kiwi_struct_decoder! {\n",
-      "    fn ",
-      RustExpr.ident(Name.decoder_function(definition.name)),
-      ";\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    module_static ",
-      RustExpr.ident(Name.module_atom_static(definition.name)),
-      ";\n",
-      "    keys_static ",
-      RustExpr.ident(Name.struct_keys_static(definition.name)),
-      ";\n",
-      "    module ",
-      inspect(Name.module_name(module_prefix, definition.name)),
-      ";\n",
-      "    keys [",
-      key_list(definition.fields),
-      "];\n",
-      "    fields [\n",
-      RustExpr.indent(Enum.intersperse(field_exprs, ",\n"), 8),
-      "\n    ]\n",
-      "}"
-    ])
-  end
-
-  defp message_decoder_item(%Message{} = definition, module_prefix, definition_map) do
-    field_entries =
-      definition.fields
-      |> Enum.with_index()
-      |> Enum.map(fn {field, index} ->
-        [
-          Integer.to_string(field.id),
-          " => ",
-          Integer.to_string(index + 1),
-          ": ",
-          field_expr(field, definition_map),
-          ";"
-        ]
-      end)
-      |> Enum.intersperse("\n")
-
-    Rust.item([
-      "kiwi_message_decoder! {\n",
-      "    fn ",
-      RustExpr.ident(Name.decoder_function(definition.name)),
-      ";\n",
-      "    fields_fn ",
-      RustExpr.ident(Name.message_fields_function(definition.name)),
-      ";\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    module_static ",
-      RustExpr.ident(Name.module_atom_static(definition.name)),
-      ";\n",
-      "    keys_static ",
-      RustExpr.ident(Name.struct_keys_static(definition.name)),
-      ";\n",
-      "    module ",
-      inspect(Name.module_name(module_prefix, definition.name)),
-      ";\n",
-      "    keys [",
-      key_list(definition.fields),
-      "];\n",
-      "    fields [\n",
-      RustExpr.indent(field_entries, 8),
-      "\n    ]\n",
-      "}"
-    ])
   end
 
   defp field_expr(%{array?: true, type: "byte"}, _definition_map) do
@@ -174,11 +81,5 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
       expr ->
         String.trim_trailing(expr, "?")
     end
-  end
-
-  defp key_list(fields) do
-    fields
-    |> Enum.map(&(&1.name |> Name.field_name() |> inspect()))
-    |> Enum.intersperse(", ")
   end
 end

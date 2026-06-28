@@ -16,7 +16,14 @@ defmodule KiwiCodec.RustlerGeneratorTest do
 
     generator_opts =
       opts
-      |> Keyword.take([:definitions, :entrypoints, :module_prefix, :decoder, :features])
+      |> Keyword.take([
+        :definitions,
+        :entrypoints,
+        :module_prefix,
+        :decoder,
+        :decoder_sources,
+        :features
+      ])
       |> inspect(limit: :infinity)
 
     File.write!(config, """
@@ -227,6 +234,30 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "kiwi_skip_struct_decoder!"
     assert generated =~ "one kiwi_skip_float_value;"
     refute generated =~ "fn decode_image_from_decoder<'a>"
+  end
+
+  test "uses decoder source metadata for defrust-authored skip helpers" do
+    schema_source = """
+    message Image {
+      int64 offset = 1;
+      string name = 2;
+    }
+    """
+
+    {generated, _config} =
+      generate_with_rustq_gen!(schema_source,
+        definitions: ["Image"],
+        features: [:skip],
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"]
+      )
+
+    assert generated =~ "fn kiwi_skip_int64_value(decoder: &mut Decoder<'_>) -> NifResult<()>"
+    assert generated =~ "decoder.read_var_int64()?;"
+    assert generated =~ "fn kiwi_skip_string_value(decoder: &mut Decoder<'_>) -> NifResult<()>"
+    assert generated =~ "decoder.skip_string()?;"
+    refute generated =~ "unwrap!"
+    refute generated =~ "match decoder.read_var_int64()"
   end
 
   test "sparse enum decoders delegate to full enum decoders when full decoders are present" do

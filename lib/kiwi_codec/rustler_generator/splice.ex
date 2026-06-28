@@ -7,9 +7,13 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   semantic without expanding large repetitive Rust bodies.
   """
 
-  @spec rustler_helpers() :: [RustQ.Rust.Fragment.t()]
-  def rustler_helpers do
-    [decoder_macros()] ++
+  alias KiwiCodec.RustlerGenerator.SkipHelpers
+
+  @spec rustler_helpers(keyword()) :: [RustQ.Rust.Fragment.t()]
+  def rustler_helpers(opts \\ []) do
+    decoder_sources = Keyword.get(opts, :decoder_sources, [])
+
+    decoder_macros(decoder_sources) ++
       RustQ.Rustler.cached_atoms([]) ++
       RustQ.Rustler.term_helpers(
         include: [
@@ -20,14 +24,13 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
       )
   end
 
-  defp decoder_macros do
-    RustQ.Rust.item([
-      full_decoder_macros(),
-      "\n",
-      skip_decoder_helpers(),
-      "\n",
-      sparse_decoder_macros()
-    ])
+  defp decoder_macros(decoder_sources) do
+    [
+      RustQ.Rust.item(full_decoder_macros()),
+      skip_decoder_fragments(decoder_sources),
+      RustQ.Rust.item(sparse_decoder_macros())
+    ]
+    |> List.flatten()
   end
 
   defp full_decoder_macros do
@@ -113,7 +116,17 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
-  defp skip_decoder_helpers do
+  defp skip_decoder_fragments([]), do: [RustQ.Rust.item(skip_decoder_helpers())]
+
+  defp skip_decoder_fragments(decoder_sources) do
+    [
+      RustQ.Rust.item(skip_decoder_types()),
+      SkipHelpers.fragments(decoder_sources),
+      RustQ.Rust.item(skip_decoder_dispatch())
+    ]
+  end
+
+  defp skip_decoder_types do
     ~S'''
     type KiwiSkipFn = fn(&mut Decoder<'_>) -> NifResult<()>;
 
@@ -127,7 +140,21 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         id: u32,
         kind: KiwiSkipKind,
     }
+    '''
+  end
 
+  defp skip_decoder_helpers do
+    [
+      skip_decoder_types(),
+      "\n",
+      raw_skip_value_helpers(),
+      "\n",
+      skip_decoder_dispatch()
+    ]
+  end
+
+  defp raw_skip_value_helpers do
+    ~S'''
     fn kiwi_skip_bool_value(decoder: &mut Decoder<'_>) -> NifResult<()> {
         decoder.read_bool()?;
         Ok(())
@@ -177,7 +204,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         decoder.read_repeated(|decoder| item(decoder))?;
         Ok(())
     }
+    '''
+  end
 
+  defp skip_decoder_dispatch do
+    ~S'''
     fn kiwi_skip_kind(decoder: &mut Decoder<'_>, kind: &KiwiSkipKind) -> NifResult<()> {
         match kind {
             KiwiSkipKind::One(skip) => skip(decoder),

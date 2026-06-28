@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add optional `decoder_sources` metadata for RustQ-authored skip helpers.
+- Update RustQ dependency to `~> 0.8.3`.
+
 ## v0.2.2 - 2026-06-28
 
 - Centralize primitive Rustler decoder metadata.

@@ -57,7 +57,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 0.8.2", runtime: false}
+    {:rustq, "~> 0.8.3", runtime: false}
   end
 
   defp package do
@@ -116,6 +116,7 @@ defmodule KiwiCodec.MixProject do
         KiwiCodec.RustlerGenerator.Entrypoint,
         KiwiCodec.RustlerGenerator.Name,
         KiwiCodec.RustlerGenerator.Selection,
+        KiwiCodec.RustlerGenerator.SkipHelpers,
         KiwiCodec.RustlerGenerator.Splice,
         KiwiCodec.Schema.Binary,
         KiwiCodec.Schema.Binary.TypeIndex,

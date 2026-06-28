@@ -49,6 +49,9 @@ defmodule KiwiCodec.RustlerGenerator do
     * `:module_prefix` - Elixir module prefix for decoded structs.
     * `:decoder` - Rust path imported as `Decoder`. Defaults to
       `"crate::runtime::Decoder"`.
+    * `:decoder_sources` - Rust source file or files that define the imported
+      `Decoder`. When provided, shared skip helper functions are authored with
+      `defrust` and RustQ uses the real decoder method metadata for propagation.
     * `:features` - decoder families to generate. Defaults to `[:full]`.
       Use `:sparse` and `:skip` for generic sparse map decoders and skip
       helpers used by projection-oriented native backends.
@@ -73,7 +76,7 @@ defmodule KiwiCodec.RustlerGenerator do
     features = Keyword.get(opts, :features, [:full])
 
     [
-      Splice.rustler_helpers(),
+      Splice.rustler_helpers(opts),
       feature_fragments(features, selected, module_prefix, definition_map),
       Entrypoint.fragments(entrypoints)
     ]

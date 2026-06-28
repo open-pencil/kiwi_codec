@@ -14,23 +14,6 @@ defmodule KiwiCodec.RustlerGenerator.RustExpr do
     end
   end
 
-  @spec primitive_ast(KiwiCodec.PrimitiveType.name()) :: Macro.t() | nil
-  def primitive_ast(type) do
-    if KiwiCodec.PrimitiveType.name?(type) do
-      method = decoder_method_atom(type)
-      args = Enum.map(decoder_args(type), &Macro.var(&1, nil))
-
-      quote do
-        decoder.unquote(method)(unquote_splicing(args))
-      end
-    end
-  end
-
-  @spec skip_primitive(KiwiCodec.PrimitiveType.name()) :: String.t() | nil
-  def skip_primitive("float"), do: "decoder.read_var_float_value()?"
-  def skip_primitive("string"), do: "decoder.skip_string()?"
-  def skip_primitive(type), do: primitive(type)
-
   @spec ident(String.t() | atom()) :: String.t()
   def ident(name) when is_atom(name), do: Atom.to_string(name)
 
@@ -57,12 +40,6 @@ defmodule KiwiCodec.RustlerGenerator.RustExpr do
   defp decoder_method_name("string"), do: "read_string"
   defp decoder_method_name("float"), do: "read_var_float"
   defp decoder_method_name(type), do: "read_var_" <> type
-
-  defp decoder_method_atom(type) do
-    type
-    |> decoder_method_name()
-    |> String.to_existing_atom()
-  end
 
   defp decoder_args(type) when type in ["float", "string"], do: [:env]
   defp decoder_args(_type), do: []

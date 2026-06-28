@@ -110,7 +110,6 @@ defmodule KiwiCodec.MixProject do
         KiwiCodec.RustlerGenerator.DecoderMacro,
         KiwiCodec.RustlerGenerator.Definition,
         KiwiCodec.RustlerGenerator.Entrypoint,
-        KiwiCodec.RustlerGenerator.FieldExpr,
         KiwiCodec.RustlerGenerator.Name,
         KiwiCodec.RustlerGenerator.Selection,
         KiwiCodec.RustlerGenerator.Splice,

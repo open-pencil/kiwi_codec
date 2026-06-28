@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.2.2 - 2026-06-28
+
+- Centralize primitive Rustler decoder metadata.
+- Compact generated skip decoders.
+- Deduplicate sparse enum decoders when full enum decoders are generated.
+- Compact generated enum decoders.
+- Remove the unused Rustler decoder macro path.
+- Update RustQ dependency to `~> 0.8.2`.
+
 ## v0.2.1 - 2026-06-26
 
 - Generate Rustler decoders through shared Rust macros to reduce repeated generated source.

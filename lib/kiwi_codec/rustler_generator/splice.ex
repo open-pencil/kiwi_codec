@@ -256,14 +256,6 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         Ok(())
     }
 
-    macro_rules! kiwi_skip_enum_decoder {
-        (fn $name:ident; decoder $decoder:ident;) => {
-            fn $name($decoder: &mut Decoder<'_>) -> NifResult<()> {
-                kiwi_skip_uint_value($decoder)
-            }
-        };
-    }
-
     macro_rules! kiwi_skip_kind {
         (one $skip:ident) => { KiwiSkipKind::One($skip) };
         (repeated $skip:ident) => { KiwiSkipKind::Repeated($skip) };

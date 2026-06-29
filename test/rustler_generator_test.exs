@@ -212,6 +212,7 @@ defmodule KiwiCodec.RustlerGeneratorTest do
       byte[] hash = 1;
       string name = 2;
       Point origin = 3;
+      Kind kind = 4;
     }
     """
 
@@ -232,6 +233,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "1 => bytes kiwi_skip_bytes_value;"
     assert generated =~ "2 => one kiwi_skip_string_value;"
     assert generated =~ "3 => one skip_point_from_decoder;"
+    assert generated =~ "4 => one kiwi_skip_uint_value;"
+    refute generated =~ "fn skip_kind_from_decoder"
     assert generated =~ "kiwi_skip_struct_decoder!"
     assert generated =~ "one kiwi_skip_float_value;"
     refute generated =~ "fn decode_image_from_decoder<'a>"

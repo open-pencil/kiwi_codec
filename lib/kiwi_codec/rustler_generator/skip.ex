@@ -53,16 +53,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     |> Rust.arm()
   end
 
-  defp definition(%SchemaEnum{name: name}, _definition_map) do
-    Rust.item([
-      "kiwi_skip_enum_decoder! {\n",
-      "    fn ",
-      skip_function_name(name),
-      ";\n",
-      "    decoder decoder;\n",
-      "}"
-    ])
-  end
+  defp definition(%SchemaEnum{}, _definition_map), do: []
 
   defp definition(%Struct{name: name, fields: fields}, definition_map) do
     Rust.item([
@@ -153,6 +144,9 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     cond do
       KiwiCodec.PrimitiveType.name?(type) ->
         RustQ.Atom.identifier!("kiwi_skip_#{RustExpr.ident(type)}_value")
+
+      match?(%SchemaEnum{}, Map.get(definition_map, type)) ->
+        :kiwi_skip_uint_value
 
       Map.has_key?(definition_map, type) ->
         RustQ.Atom.identifier!("skip_#{RustExpr.ident(type)}_from_decoder")

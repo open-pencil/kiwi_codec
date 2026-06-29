@@ -9,6 +9,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   alias KiwiCodec.RustlerGenerator.DecoderMacro
   alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.RustlerGenerator.RustExpr
+  alias KiwiCodec.RustlerGenerator.Skip
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Rust
@@ -85,6 +86,56 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
       length(fields) + 1,
       field_entries
     )
+  end
+
+  defp definition(
+         %Message{name: name, fields: fields},
+         module_prefix,
+         definition_map,
+         _full?,
+         :descriptor_with_skip
+       ) do
+    field_entries =
+      fields
+      |> Enum.sort_by(& &1.id)
+      |> Enum.map(fn field ->
+        [
+          Integer.to_string(field.id),
+          " => ",
+          descriptor_field_entry(field, definition_map),
+          " ",
+          Skip.field_kind(field, definition_map),
+          ";"
+        ]
+      end)
+      |> Enum.intersperse("\n")
+
+    ident = RustExpr.ident(name)
+
+    Rust.item([
+      "kiwi_sparse_skip_message_descriptor_decoder! {\n",
+      "    sparse_fn decode_sparse_",
+      ident,
+      "_from_decoder;\n",
+      "    skip_fn skip_",
+      ident,
+      "_from_decoder;\n",
+      "    env env;\n",
+      "    decoder decoder;\n",
+      "    module ",
+      inspect(module_name(module_prefix, name)),
+      ";\n",
+      "    definition ",
+      inspect(name),
+      ";\n",
+      "    capacity ",
+      Integer.to_string(length(fields) + 1),
+      ";\n",
+      "    fields [\n",
+      RustExpr.indent(field_entries, 8),
+      "\n    ]\n",
+      "}"
+    ])
   end
 
   defp definition(

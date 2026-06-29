@@ -28,9 +28,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     @type t :: %__MODULE__{mode: mode(), function: atom()}
   end
 
-  @spec fragments([KiwiCodec.Schema.definition()], map()) :: [RustQ.Rust.Fragment.t()]
-  def fragments(definitions, definition_map) do
-    Enum.map(definitions, &definition(&1, definition_map))
+  @spec fragments([KiwiCodec.Schema.definition()], map(), keyword()) :: [RustQ.Rust.Fragment.t()]
+  def fragments(definitions, definition_map, opts \\ []) do
+    messages? = Keyword.get(opts, :messages?, true)
+    Enum.map(definitions, &definition(&1, definition_map, messages?))
   end
 
   @spec field_expr(map(), map()) :: String.t()
@@ -53,9 +54,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     |> Rust.arm()
   end
 
-  defp definition(%SchemaEnum{}, _definition_map), do: []
+  defp definition(definition, definition_map, messages?)
+  defp definition(%SchemaEnum{}, _definition_map, _messages?), do: []
 
-  defp definition(%Struct{name: name, fields: fields}, definition_map) do
+  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?) do
     Rust.item([
       "kiwi_skip_struct_decoder! {\n",
       "    fn ",
@@ -69,7 +71,9 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     ])
   end
 
-  defp definition(%Message{name: name, fields: fields}, definition_map) do
+  defp definition(%Message{}, _definition_map, false), do: []
+
+  defp definition(%Message{name: name, fields: fields}, definition_map, true) do
     Rust.item([
       "kiwi_skip_message_decoder! {\n",
       "    fn ",
@@ -106,7 +110,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     |> skip_kind_call()
   end
 
-  defp field_kind(field, definition_map) do
+  def field_kind(field, definition_map) do
     field
     |> skip_kind(definition_map)
     |> skip_kind_tokens()

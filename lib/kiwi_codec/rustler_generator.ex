@@ -86,6 +86,10 @@ defmodule KiwiCodec.RustlerGenerator do
   end
 
   defp feature_fragments(features, selected, module_prefix, definition_map, opts) do
+    shared_sparse_skip? =
+      :sparse in features and :skip in features and
+        Keyword.get(opts, :sparse_messages, :match) == :descriptor
+
     Enum.flat_map(features, fn
       :full ->
         Definition.fragments(selected, module_prefix, definition_map)
@@ -93,11 +97,15 @@ defmodule KiwiCodec.RustlerGenerator do
       :sparse ->
         Sparse.fragments(selected, module_prefix, definition_map,
           full?: :full in features,
-          message_mode: Keyword.get(opts, :sparse_messages, :match)
+          message_mode:
+            if(shared_sparse_skip?,
+              do: :descriptor_with_skip,
+              else: Keyword.get(opts, :sparse_messages, :match)
+            )
         )
 
       :skip ->
-        Skip.fragments(selected, definition_map)
+        Skip.fragments(selected, definition_map, messages?: not shared_sparse_skip?)
 
       feature ->
         raise ArgumentError, "unknown Rustler generator feature #{inspect(feature)}"

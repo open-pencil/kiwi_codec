@@ -16,7 +16,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     features = Keyword.get(opts, :features, [:full])
     decoder_sources = helper_decoder_sources(opts, features)
 
-    decoder_macros(features, decoder_sources) ++
+    decoder_macros(features, decoder_sources, opts) ++
       RustQ.Rustler.cached_atoms([]) ++
       RustQ.Rustler.term_helpers(
         include: [
@@ -35,11 +35,14 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     end
   end
 
-  defp decoder_macros(features, decoder_sources) do
+  defp decoder_macros(features, decoder_sources, opts) do
     [
       if(:full in features, do: RustQ.Rust.item(full_decoder_macros()), else: []),
       if(:skip in features, do: skip_decoder_fragments(decoder_sources), else: []),
-      if(:sparse in features, do: sparse_decoder_fragments(decoder_sources), else: [])
+      if(:sparse in features,
+        do: sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts)),
+        else: []
+      )
     ]
     |> List.flatten()
   end
@@ -262,6 +265,9 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         (one $skip:ident) => { KiwiSkipKind::One($skip) };
         (repeated $skip:ident) => { KiwiSkipKind::Repeated($skip) };
         (bytes $skip:ident) => { KiwiSkipKind::Bytes };
+        (one, $skip:ident) => { KiwiSkipKind::One($skip) };
+        (repeated, $skip:ident) => { KiwiSkipKind::Repeated($skip) };
+        (bytes, $skip:ident) => { KiwiSkipKind::Bytes };
     }
 
     macro_rules! kiwi_skip_struct_decoder {
@@ -272,6 +278,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         };
     }
 
+    #[allow(unused_macros)]
     macro_rules! kiwi_skip_message_decoder {
         (
             fn $name:ident;
@@ -291,7 +298,14 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
-  defp sparse_decoder_fragments([]) do
+  defp shared_sparse_skip?(features, opts) do
+    :sparse in features and :skip in features and
+      Keyword.get(opts, :sparse_messages, :match) == :descriptor
+  end
+
+  defp sparse_decoder_fragments(decoder_sources, shared?)
+
+  defp sparse_decoder_fragments([], _shared?) do
     [
       RustQ.Rust.item([sparse_decoder_declarations(), "\n", raw_sparse_value_helpers()]),
       sparse_descriptor_macros(),
@@ -299,11 +313,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     ]
   end
 
-  defp sparse_decoder_fragments(decoder_sources) do
+  defp sparse_decoder_fragments(decoder_sources, shared?) do
     [
       RustQ.Rust.item(sparse_decoder_declarations()),
       sparse_repeated_macro_fragment(),
-      SparseHelpers.fragments(decoder_sources),
+      SparseHelpers.fragments(decoder_sources, macros: sparse_helper_macros(shared?)),
       RustQ.Rust.item(sparse_message_decoder_macro())
     ]
   end
@@ -396,6 +410,9 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     }
     '''
   end
+
+  defp sparse_helper_macros(true), do: [:kiwi_sparse_skip_message_descriptor_decoder]
+  defp sparse_helper_macros(false), do: [:kiwi_sparse_message_descriptor_decoder]
 
   defp sparse_descriptor_macros do
     [

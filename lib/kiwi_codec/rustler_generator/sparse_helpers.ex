@@ -10,7 +10,8 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
   alias RustQ.Meta.AST, as: MetaAST
 
   @macros [
-    :kiwi_sparse_message_descriptor_decoder
+    :kiwi_sparse_message_descriptor_decoder,
+    :kiwi_sparse_skip_message_descriptor_decoder
   ]
 
   @functions [
@@ -28,12 +29,13 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     :kiwi_sparse_message_fields_remaining
   ]
 
-  @spec fragments([Path.t()] | Path.t()) :: [RustQ.Rust.Fragment.t()]
-  def fragments(decoder_sources) do
+  @spec fragments([Path.t()] | Path.t(), keyword()) :: [RustQ.Rust.Fragment.t()]
+  def fragments(decoder_sources, opts \\ []) do
     module = generated_module!(decoder_sources)
+    macros = Keyword.get(opts, :macros, @macros)
 
     module.__rustq_type_items__() ++
-      MetaAST.macro_items(module, @macros) ++ MetaAST.items(module, @functions)
+      MetaAST.macro_items(module, macros) ++ MetaAST.items(module, @functions)
   end
 
   defp generated_module!(decoder_sources) do
@@ -112,6 +114,70 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                       name: field_name,
                       repeated: kiwi_sparse_repeated!(field_mode),
                       decode: field_decode
+                    )
+                  end
+                ])
+              )
+            )
+          end
+        end
+      end,
+      quote do
+        defrustmacro kiwi_sparse_skip_message_descriptor_decoder(
+                       sparse_fn: sparse_name(:ident),
+                       skip_fn: skip_name(:ident),
+                       env: env(:ident),
+                       decoder: decoder(:ident),
+                       module: module_name(:literal),
+                       definition: definition_name(:literal),
+                       capacity: capacity(:literal),
+                       fields:
+                         repeat do
+                           field_id(:literal)
+                           field_name(:literal)
+                           field_mode(:ident)
+                           field_decode(:ident)
+                           field_skip_mode(:ident)
+                           field_skip(:ident)
+                         end
+                     ) do
+          @spec sparse_name(
+                  R.path(:Env, R.lifetime(:a)),
+                  R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+                ) :: R.nif_result(term())
+          defrust sparse_name(env, decoder) do
+            kiwi_sparse_message_fields(
+              env,
+              decoder,
+              module_name,
+              definition_name,
+              capacity,
+              ref(
+                array([
+                  repeat fields do
+                    struct_literal(KiwiSparseField,
+                      id: field_id,
+                      name: field_name,
+                      repeated: kiwi_sparse_repeated!(field_mode),
+                      decode: field_decode
+                    )
+                  end
+                ])
+              )
+            )
+          end
+
+          @spec skip_name(R.mut_ref(R.path(:Decoder, R.lifetime(:_)))) :: R.nif_result(R.unit())
+          defrust skip_name(decoder) do
+            kiwi_skip_message_fields(
+              decoder,
+              definition_name,
+              ref(
+                array([
+                  repeat fields do
+                    struct_literal(KiwiSkipField,
+                      id: field_id,
+                      kind: kiwi_skip_kind!(field_skip_mode, field_skip)
                     )
                   end
                 ])

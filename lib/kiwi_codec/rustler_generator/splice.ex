@@ -40,7 +40,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
       if(:full in features, do: RustQ.Rust.item(full_decoder_macros()), else: []),
       if(:skip in features, do: skip_decoder_fragments(decoder_sources), else: []),
       if(:sparse in features,
-        do: sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts)),
+        do: sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts), opts),
         else: []
       )
     ]
@@ -330,9 +330,9 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
       Keyword.get(opts, :sparse_messages, :match) == :descriptor
   end
 
-  defp sparse_decoder_fragments(decoder_sources, shared?)
+  defp sparse_decoder_fragments(decoder_sources, shared?, opts)
 
-  defp sparse_decoder_fragments([], _shared?) do
+  defp sparse_decoder_fragments([], _shared?, _opts) do
     [
       RustQ.Rust.item([
         sparse_enum_decoder_macro(),
@@ -346,11 +346,14 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     ]
   end
 
-  defp sparse_decoder_fragments(decoder_sources, shared?) do
+  defp sparse_decoder_fragments(decoder_sources, shared?, opts) do
     [
       sparse_repeated_macro_fragment(),
       SparseHelpers.fragments(decoder_sources, macros: sparse_helper_macros(shared?)),
-      RustQ.Rust.item(sparse_message_decoder_macro())
+      if(sparse_message_decoder_macro_required?(shared?, opts),
+        do: RustQ.Rust.item(sparse_message_decoder_macro()),
+        else: []
+      )
     ]
   end
 
@@ -446,6 +449,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     }
     '''
   end
+
+  defp sparse_message_decoder_macro_required?(true, _opts), do: false
+
+  defp sparse_message_decoder_macro_required?(false, opts),
+    do: Keyword.get(opts, :sparse_messages, :match) == :match
 
   defp sparse_helper_macros(true),
     do: [

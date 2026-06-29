@@ -15,6 +15,8 @@
   when both descriptor sparse and skip features are generated.
 - Author sparse enum and sparse struct descriptor decoding with RustQ-authored
   `defrust` helpers and item-generating `defrustmacro`.
+- Avoid emitting the raw match-backed sparse message macro when decoder-source
+  descriptor sparse generation does not use it.
 - Move descriptor-backed skip message scanning into RustQ-authored `defrust`
   helpers with sorted field lookup.
 - Generate skip descriptor function, enum, and field declarations from RustQ

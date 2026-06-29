@@ -261,13 +261,26 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         Ok(())
     }
 
+    macro_rules! kiwi_skip_decode {
+        (bool) => { kiwi_skip_bool_value };
+        (byte) => { kiwi_skip_byte_value };
+        (float) => { kiwi_skip_float_value };
+        (int) => { kiwi_skip_int_value };
+        (int64) => { kiwi_skip_int64_value };
+        (string) => { kiwi_skip_string_value };
+        (uint) => { kiwi_skip_uint_value };
+        (uint64) => { kiwi_skip_uint64_value };
+        (bytes) => { kiwi_skip_bytes_value };
+        ($skip:ident) => { $skip };
+    }
+
     macro_rules! kiwi_skip_kind {
         (one $skip:ident) => { KiwiSkipKind::One($skip) };
         (repeated $skip:ident) => { KiwiSkipKind::Repeated($skip) };
         (bytes $skip:ident) => { KiwiSkipKind::Bytes };
-        (one, $skip:ident) => { KiwiSkipKind::One($skip) };
-        (repeated, $skip:ident) => { KiwiSkipKind::Repeated($skip) };
-        (bytes, $skip:ident) => { KiwiSkipKind::Bytes };
+        (one, $skip:expr) => { KiwiSkipKind::One($skip) };
+        (repeated, $skip:expr) => { KiwiSkipKind::Repeated($skip) };
+        (bytes, $skip:expr) => { KiwiSkipKind::Bytes };
     }
 
     macro_rules! kiwi_skip_struct_decoder {
@@ -341,6 +354,19 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
                 }
             }
         };
+    }
+
+    macro_rules! kiwi_sparse_decode {
+        (bool) => { kiwi_sparse_bool_value };
+        (byte) => { kiwi_sparse_byte_value };
+        (float) => { kiwi_sparse_float_value };
+        (int) => { kiwi_sparse_int_value };
+        (int64) => { kiwi_sparse_int64_value };
+        (string) => { kiwi_sparse_string_value };
+        (uint) => { kiwi_sparse_uint_value };
+        (uint64) => { kiwi_sparse_uint64_value };
+        (bytes) => { kiwi_sparse_bytes_value };
+        ($decode:ident) => { $decode };
     }
 
     macro_rules! kiwi_sparse_struct_decoder {

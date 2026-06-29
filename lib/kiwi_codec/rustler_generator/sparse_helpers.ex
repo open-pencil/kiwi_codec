@@ -113,7 +113,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                       id: field_id,
                       name: field_name,
                       repeated: kiwi_sparse_repeated!(field_mode),
-                      decode: field_decode
+                      decode: kiwi_sparse_decode!(field_decode)
                     )
                   end
                 ])
@@ -159,7 +159,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                       id: field_id,
                       name: field_name,
                       repeated: kiwi_sparse_repeated!(field_mode),
-                      decode: field_decode
+                      decode: kiwi_sparse_decode!(field_decode)
                     )
                   end
                 ])
@@ -177,7 +177,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                   repeat fields do
                     struct_literal(KiwiSkipField,
                       id: field_id,
-                      kind: kiwi_skip_kind!(field_skip_mode, field_skip)
+                      kind: kiwi_skip_kind!(field_skip_mode, kiwi_skip_decode!(field_skip))
                     )
                   end
                 ])

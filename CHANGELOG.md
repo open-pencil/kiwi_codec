@@ -13,6 +13,8 @@
   `defrustmacro` and compact `repeat` macro-template support.
 - Share descriptor field inventories between sparse and skip message decoders
   when both descriptor sparse and skip features are generated.
+- Compact primitive aliases inside descriptor macro invocations to reduce
+  generated Rust source size.
 - Collapse the separate sparse bytes descriptor mode into ordinary `one`
   descriptor mode.
 

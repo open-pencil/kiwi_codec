@@ -8,11 +8,12 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   """
 
   alias KiwiCodec.RustlerGenerator.SkipHelpers
+  alias KiwiCodec.RustlerGenerator.SparseHelpers
 
   @spec rustler_helpers(keyword()) :: [RustQ.Rust.Fragment.t()]
   def rustler_helpers(opts \\ []) do
     features = Keyword.get(opts, :features, [:full])
-    decoder_sources = skip_decoder_sources(opts, features)
+    decoder_sources = helper_decoder_sources(opts, features)
 
     decoder_macros(features, decoder_sources) ++
       RustQ.Rustler.cached_atoms([]) ++
@@ -25,8 +26,8 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
       )
   end
 
-  defp skip_decoder_sources(opts, features) do
-    if :skip in features do
+  defp helper_decoder_sources(opts, features) do
+    if Enum.any?(features, &(&1 in [:skip, :sparse])) do
       Keyword.get(opts, :decoder_sources, [])
     else
       []
@@ -37,7 +38,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     [
       if(:full in features, do: RustQ.Rust.item(full_decoder_macros()), else: []),
       if(:skip in features, do: skip_decoder_fragments(decoder_sources), else: []),
-      if(:sparse in features, do: RustQ.Rust.item(sparse_decoder_macros()), else: [])
+      if(:sparse in features, do: sparse_decoder_fragments(decoder_sources), else: [])
     ]
     |> List.flatten()
   end
@@ -289,7 +290,27 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
+  defp sparse_decoder_fragments([]), do: [RustQ.Rust.item(sparse_decoder_macros())]
+
+  defp sparse_decoder_fragments(decoder_sources) do
+    [
+      RustQ.Rust.item(sparse_decoder_declarations()),
+      SparseHelpers.fragments(decoder_sources),
+      RustQ.Rust.item(sparse_decoder_dispatch_macros())
+    ]
+  end
+
   defp sparse_decoder_macros do
+    [
+      sparse_decoder_declarations(),
+      "\n",
+      raw_sparse_value_helpers(),
+      "\n",
+      sparse_decoder_dispatch_macros()
+    ]
+  end
+
+  defp sparse_decoder_declarations do
     ~S'''
     #[allow(unused_macros)]
     macro_rules! kiwi_sparse_enum_decoder {
@@ -348,7 +369,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         name: &'static str,
         kind: KiwiSparseKind,
     }
+    '''
+  end
 
+  defp raw_sparse_value_helpers do
+    ~S'''
     fn kiwi_sparse_bool_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
         Ok(decoder.read_bool()?.encode(env))
     }
@@ -358,7 +383,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     }
 
     fn kiwi_sparse_float_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
-        Ok(decoder.read_var_float(env)?.encode(env))
+        decoder.read_var_float(env)
     }
 
     fn kiwi_sparse_int_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
@@ -370,7 +395,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     }
 
     fn kiwi_sparse_string_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
-        Ok(decoder.read_string(env)?.encode(env))
+        decoder.read_string(env)
     }
 
     fn kiwi_sparse_uint_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
@@ -384,7 +409,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     fn kiwi_sparse_bytes_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
         decoder.read_byte_array(env)
     }
+    '''
+  end
 
+  defp sparse_decoder_dispatch_macros do
+    ~S'''
     fn kiwi_sparse_kind<'a>(env: Env<'a>, decoder: &mut Decoder<'_>, kind: &KiwiSparseKind) -> NifResult<Term<'a>> {
         match kind {
             KiwiSparseKind::One(decode) => decode(env, decoder),

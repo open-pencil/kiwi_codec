@@ -257,6 +257,7 @@ defmodule KiwiCodec.RustlerGeneratorTest do
       string name = 2;
       Point origin = 3;
       Kind kind = 4;
+      bool visible = 5;
     }
     """
 
@@ -265,7 +266,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
         definitions: ["Image"],
         features: [:sparse],
         sparse_messages: :descriptor,
-        module_prefix: "Example.Schema"
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"]
       )
 
     assert generated =~ "macro_rules! kiwi_sparse_message_descriptor_decoder"
@@ -274,6 +276,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "2 => \"name\": one kiwi_sparse_string_value;"
     assert generated =~ "3 => \"origin\": one decode_sparse_point_from_decoder;"
     assert generated =~ "4 => \"kind\": one decode_sparse_kind_from_decoder;"
+    assert generated =~ "5 => \"visible\": one kiwi_sparse_bool_value;"
+    assert generated =~ "let value = decoder.read_bool()?;"
     refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
   end
 

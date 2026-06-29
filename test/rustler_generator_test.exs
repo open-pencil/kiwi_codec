@@ -278,6 +278,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "4 => \"kind\": one decode_sparse_kind_from_decoder;"
     assert generated =~ "5 => \"visible\": one kiwi_sparse_bool_value;"
     assert generated =~ "let value = decoder.read_bool()?;"
+    assert generated =~ "macro_rules! kiwi_sparse_repeated"
+    refute generated =~ "enum KiwiSparseKind"
     refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
   end
 

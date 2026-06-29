@@ -19,6 +19,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     :kiwi_sparse_uint_value,
     :kiwi_sparse_uint64_value,
     :kiwi_sparse_bytes_value,
+    :kiwi_sparse_field_value,
     :kiwi_sparse_message_fields,
     :kiwi_sparse_message_fields_remaining
   ]
@@ -99,9 +100,30 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
 
   defp message_helper_definitions do
     [
+      quote_field_value(),
       quote_message_fields(),
       quote_message_fields_remaining()
     ]
+  end
+
+  defp quote_field_value do
+    quote do
+      @spec kiwi_sparse_field_value(
+              R.path(:Env, R.lifetime(:a)),
+              R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+              R.ref(R.path(:KiwiSparseField))
+            ) :: R.nif_result(term())
+      defrust kiwi_sparse_field_value(env, decoder, field) do
+        decode = field.decode
+
+        if field.repeated do
+          values = unwrap!(decoder.read_repeated(fn decoder -> decode(env, decoder) end))
+          {:ok, values.encode(env)}
+        else
+          decode(env, decoder)
+        end
+      end
+    end
   end
 
   defp quote_message_fields do
@@ -161,7 +183,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
             {:ok, index} ->
               field = fields.get(index).unwrap()
               keys.push(Atom.from_str(env, field.name).unwrap().encode(env))
-              values.push(unwrap!(kiwi_sparse_kind(env, decoder, ref(field.kind))))
+              values.push(unwrap!(kiwi_sparse_field_value(env, decoder, field)))
 
               kiwi_sparse_message_fields_remaining(env, decoder, fields, keys, values)
 

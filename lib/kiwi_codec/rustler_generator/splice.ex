@@ -358,16 +358,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
     type KiwiSparseDecodeFn = for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>;
 
-    enum KiwiSparseKind {
-        One(KiwiSparseDecodeFn),
-        Repeated(KiwiSparseDecodeFn),
-        Bytes,
-    }
-
     struct KiwiSparseField {
         id: u32,
         name: &'static str,
-        kind: KiwiSparseKind,
+        repeated: bool,
+        decode: KiwiSparseDecodeFn,
     }
     '''
   end
@@ -414,19 +409,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp sparse_decoder_dispatch_macros do
     ~S'''
-    fn kiwi_sparse_kind<'a>(env: Env<'a>, decoder: &mut Decoder<'_>, kind: &KiwiSparseKind) -> NifResult<Term<'a>> {
-        match kind {
-            KiwiSparseKind::One(decode) => decode(env, decoder),
-            KiwiSparseKind::Repeated(decode) => Ok(decoder.read_repeated(|decoder| decode(env, decoder))?.encode(env)),
-            KiwiSparseKind::Bytes => kiwi_sparse_bytes_value(env, decoder),
-        }
-    }
-
     #[allow(unused_macros)]
-    macro_rules! kiwi_sparse_kind {
-        (one $decode:ident) => { KiwiSparseKind::One($decode) };
-        (repeated $decode:ident) => { KiwiSparseKind::Repeated($decode) };
-        (bytes $decode:ident) => { KiwiSparseKind::Bytes };
+    macro_rules! kiwi_sparse_repeated {
+        (one) => { false };
+        (repeated) => { true };
+        (bytes) => { false };
     }
 
     #[allow(unused_macros)]
@@ -447,7 +434,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
                     $module_name,
                     $definition_name,
                     $capacity,
-                    &[$(KiwiSparseField { id: $field_id, name: $field_name, kind: kiwi_sparse_kind!($field_mode $field_decode) },)*],
+                    &[$(KiwiSparseField { id: $field_id, name: $field_name, repeated: kiwi_sparse_repeated!($field_mode), decode: $field_decode },)*],
                 )
             }
         };

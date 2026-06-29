@@ -18,10 +18,18 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
         ]
   def fragments(definitions, module_prefix, definition_map, opts \\ []) do
     full? = Keyword.get(opts, :full?, false)
-    Enum.map(definitions, &definition(&1, module_prefix, definition_map, full?))
+    message_mode = Keyword.get(opts, :message_mode, :match)
+
+    Enum.map(definitions, &definition(&1, module_prefix, definition_map, full?, message_mode))
   end
 
-  defp definition(%Struct{name: name, fields: fields}, module_prefix, definition_map, _full?) do
+  defp definition(
+         %Struct{name: name, fields: fields},
+         module_prefix,
+         definition_map,
+         _full?,
+         _message_mode
+       ) do
     field_entries =
       fields
       |> Enum.map(&field_entry(&1, definition_map))
@@ -35,7 +43,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
     )
   end
 
-  defp definition(%SchemaEnum{name: name}, _module_prefix, _definition_map, true) do
+  defp definition(%SchemaEnum{name: name}, _module_prefix, _definition_map, true, _message_mode) do
     Rust.item([
       "fn decode_sparse_",
       RustExpr.ident(name),
@@ -51,12 +59,19 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          %SchemaEnum{name: name, variants: variants},
          _module_prefix,
          _definition_map,
-         false
+         false,
+         _message_mode
        ) do
     DecoderMacro.sparse_enum_decoder(name, variants)
   end
 
-  defp definition(%Message{name: name, fields: fields}, module_prefix, definition_map, _full?) do
+  defp definition(
+         %Message{name: name, fields: fields},
+         module_prefix,
+         definition_map,
+         _full?,
+         :match
+       ) do
     field_entries =
       fields
       |> Enum.map(fn field ->
@@ -72,6 +87,29 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
     )
   end
 
+  defp definition(
+         %Message{name: name, fields: fields},
+         module_prefix,
+         definition_map,
+         _full?,
+         :descriptor
+       ) do
+    field_entries =
+      fields
+      |> Enum.sort_by(& &1.id)
+      |> Enum.map(fn field ->
+        [Integer.to_string(field.id), " => ", descriptor_field_entry(field, definition_map)]
+      end)
+      |> Enum.intersperse("\n")
+
+    DecoderMacro.sparse_message_descriptor_decoder(
+      name,
+      module_name(module_prefix, name),
+      length(fields) + 1,
+      field_entries
+    )
+  end
+
   defp field_entry(field, definition_map) do
     [
       inspect(Macro.underscore(field.name)),
@@ -79,6 +117,36 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
       field_expr(field, definition_map),
       ";"
     ]
+  end
+
+  defp descriptor_field_entry(field, definition_map) do
+    [
+      inspect(Macro.underscore(field.name)),
+      ": ",
+      descriptor_field_kind(field, definition_map),
+      ";"
+    ]
+  end
+
+  defp descriptor_field_kind(%{array?: true, type: "byte"}, _definition_map),
+    do: "bytes kiwi_sparse_bytes_value"
+
+  defp descriptor_field_kind(%{array?: true} = field, definition_map) do
+    ["repeated ", descriptor_scalar_function(%{field | array?: false}, definition_map)]
+  end
+
+  defp descriptor_field_kind(field, definition_map) do
+    ["one ", descriptor_scalar_function(field, definition_map)]
+  end
+
+  defp descriptor_scalar_function(%{type: type}, definition_map) do
+    cond do
+      KiwiCodec.PrimitiveType.name?(type) ->
+        ["kiwi_sparse_", RustExpr.ident(type), "_value"]
+
+      Map.has_key?(definition_map, type) ->
+        ["decode_sparse_", RustExpr.ident(type), "_from_decoder"]
+    end
   end
 
   defp field_expr(%{array?: true, type: "byte"}, _definition_map) do

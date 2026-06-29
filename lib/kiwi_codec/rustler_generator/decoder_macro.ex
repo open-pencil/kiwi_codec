@@ -162,8 +162,19 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   @spec sparse_message_decoder(String.t(), String.t(), pos_integer(), iodata()) ::
           RustQ.Rust.Fragment.t()
   def sparse_message_decoder(name, module_name, capacity, field_entries) do
+    sparse_message_decoder(:match, name, module_name, capacity, field_entries)
+  end
+
+  @spec sparse_message_descriptor_decoder(String.t(), String.t(), pos_integer(), iodata()) ::
+          RustQ.Rust.Fragment.t()
+  def sparse_message_descriptor_decoder(name, module_name, capacity, field_entries) do
+    sparse_message_decoder(:descriptor, name, module_name, capacity, field_entries)
+  end
+
+  defp sparse_message_decoder(mode, name, module_name, capacity, field_entries) do
     Rust.item([
-      "kiwi_sparse_message_decoder! {\n",
+      sparse_message_macro_name(mode),
+      " {\n",
       "    fn decode_sparse_",
       RustExpr.ident(name),
       "_from_decoder;\n",
@@ -184,6 +195,9 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
       "}"
     ])
   end
+
+  defp sparse_message_macro_name(:match), do: "kiwi_sparse_message_decoder!"
+  defp sparse_message_macro_name(:descriptor), do: "kiwi_sparse_message_descriptor_decoder!"
 
   defmacro entrypoint(nif_name, decoder_name) do
     nif_name = expand_arg!(nif_name, __CALLER__)

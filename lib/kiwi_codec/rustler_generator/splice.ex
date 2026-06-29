@@ -335,6 +335,132 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         };
     }
 
+    type KiwiSparseDecodeFn = for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>;
+
+    enum KiwiSparseKind {
+        One(KiwiSparseDecodeFn),
+        Repeated(KiwiSparseDecodeFn),
+        Bytes,
+    }
+
+    struct KiwiSparseField {
+        id: u32,
+        name: &'static str,
+        kind: KiwiSparseKind,
+    }
+
+    fn kiwi_sparse_bool_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_bool()?.encode(env))
+    }
+
+    fn kiwi_sparse_byte_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_byte()?.encode(env))
+    }
+
+    fn kiwi_sparse_float_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_var_float(env)?.encode(env))
+    }
+
+    fn kiwi_sparse_int_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_var_int()?.encode(env))
+    }
+
+    fn kiwi_sparse_int64_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_var_int64()?.encode(env))
+    }
+
+    fn kiwi_sparse_string_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_string(env)?.encode(env))
+    }
+
+    fn kiwi_sparse_uint_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_var_uint()?.encode(env))
+    }
+
+    fn kiwi_sparse_uint64_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        Ok(decoder.read_var_uint64()?.encode(env))
+    }
+
+    fn kiwi_sparse_bytes_value<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+        decoder.read_byte_array(env)
+    }
+
+    fn kiwi_sparse_kind<'a>(env: Env<'a>, decoder: &mut Decoder<'_>, kind: &KiwiSparseKind) -> NifResult<Term<'a>> {
+        match kind {
+            KiwiSparseKind::One(decode) => decode(env, decoder),
+            KiwiSparseKind::Repeated(decode) => Ok(decoder.read_repeated(|decoder| decode(env, decoder))?.encode(env)),
+            KiwiSparseKind::Bytes => kiwi_sparse_bytes_value(env, decoder),
+        }
+    }
+
+    fn kiwi_sparse_message_fields<'a>(
+        env: Env<'a>,
+        decoder: &mut Decoder<'_>,
+        module_name: &str,
+        definition_name: &str,
+        capacity: usize,
+        fields: &[KiwiSparseField],
+    ) -> NifResult<Term<'a>> {
+        let module_atom = Atom::from_str(env, module_name).unwrap();
+        let module_key_atom = Atom::from_str(env, "__kiwi_module__").unwrap();
+        let mut keys = Vec::with_capacity(capacity);
+        let mut values = Vec::with_capacity(capacity);
+        keys.push(module_key_atom.encode(env));
+        values.push(module_atom.encode(env));
+        loop {
+            match decoder.read_var_uint()? {
+                0 => break,
+                field_id => match fields.binary_search_by_key(&field_id, |field| field.id) {
+                    Ok(index) => {
+                        let field = &fields[index];
+                        keys.push(Atom::from_str(env, field.name).unwrap().encode(env));
+                        values.push(kiwi_sparse_kind(env, decoder, &field.kind)?);
+                    }
+                    Err(_) => {
+                        return Err(Error::Term(Box::new(format!(
+                            "unknown field {} while decoding sparse {}",
+                            field_id,
+                            definition_name
+                        ))));
+                    }
+                },
+            }
+        }
+        Term::map_from_term_arrays(env, &keys, &values)
+    }
+
+    #[allow(unused_macros)]
+    macro_rules! kiwi_sparse_kind {
+        (one $decode:ident) => { KiwiSparseKind::One($decode) };
+        (repeated $decode:ident) => { KiwiSparseKind::Repeated($decode) };
+        (bytes $decode:ident) => { KiwiSparseKind::Bytes };
+    }
+
+    #[allow(unused_macros)]
+    macro_rules! kiwi_sparse_message_descriptor_decoder {
+        (
+            fn $name:ident;
+            env $env:ident;
+            decoder $decoder:ident;
+            module $module_name:literal;
+            definition $definition_name:literal;
+            capacity $capacity:literal;
+            fields [$($field_id:literal => $field_name:literal: $field_mode:ident $field_decode:ident;)*]
+        ) => {
+            fn $name<'a>($env: Env<'a>, $decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
+                kiwi_sparse_message_fields(
+                    $env,
+                    $decoder,
+                    $module_name,
+                    $definition_name,
+                    $capacity,
+                    &[$(KiwiSparseField { id: $field_id, name: $field_name, kind: kiwi_sparse_kind!($field_mode $field_decode) },)*],
+                )
+            }
+        };
+    }
+
+    #[allow(unused_macros)]
     macro_rules! kiwi_sparse_message_decoder {
         (
             fn $name:ident;

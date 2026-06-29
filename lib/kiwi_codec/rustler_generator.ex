@@ -55,6 +55,9 @@ defmodule KiwiCodec.RustlerGenerator do
     * `:features` - decoder families to generate. Defaults to `[:full]`.
       Use `:sparse` and `:skip` for generic sparse map decoders and skip
       helpers used by projection-oriented native backends.
+    * `:sparse_messages` - sparse message generation strategy. Defaults to
+      `:match`. Use `:descriptor` to generate compact descriptor-backed sparse
+      message decoders and benchmark before adopting on hot schemas.
 
   """
   @spec source(Schema.t(), keyword()) :: String.t()
@@ -77,18 +80,21 @@ defmodule KiwiCodec.RustlerGenerator do
 
     [
       Splice.rustler_helpers(opts),
-      feature_fragments(features, selected, module_prefix, definition_map),
+      feature_fragments(features, selected, module_prefix, definition_map, opts),
       Entrypoint.fragments(entrypoints)
     ]
   end
 
-  defp feature_fragments(features, selected, module_prefix, definition_map) do
+  defp feature_fragments(features, selected, module_prefix, definition_map, opts) do
     Enum.flat_map(features, fn
       :full ->
         Definition.fragments(selected, module_prefix, definition_map)
 
       :sparse ->
-        Sparse.fragments(selected, module_prefix, definition_map, full?: :full in features)
+        Sparse.fragments(selected, module_prefix, definition_map,
+          full?: :full in features,
+          message_mode: Keyword.get(opts, :sparse_messages, :match)
+        )
 
       :skip ->
         Skip.fragments(selected, definition_map)

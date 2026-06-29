@@ -22,7 +22,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
         :module_prefix,
         :decoder,
         :decoder_sources,
-        :features
+        :features,
+        :sparse_messages
       ])
       |> inspect(limit: :infinity)
 
@@ -238,6 +239,42 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "kiwi_skip_struct_decoder!"
     assert generated =~ "one kiwi_skip_float_value;"
     refute generated =~ "fn decode_image_from_decoder<'a>"
+  end
+
+  test "renders descriptor-backed sparse message decoders when requested" do
+    schema_source = """
+    enum Kind {
+      Rectangle = 1;
+    }
+
+    struct Point {
+      float x;
+      float y;
+    }
+
+    message Image {
+      byte[] hash = 1;
+      string name = 2;
+      Point origin = 3;
+      Kind kind = 4;
+    }
+    """
+
+    {generated, _config} =
+      generate_with_rustq_gen!(schema_source,
+        definitions: ["Image"],
+        features: [:sparse],
+        sparse_messages: :descriptor,
+        module_prefix: "Example.Schema"
+      )
+
+    assert generated =~ "macro_rules! kiwi_sparse_message_descriptor_decoder"
+    assert generated =~ "kiwi_sparse_message_descriptor_decoder!"
+    assert generated =~ "1 => \"hash\": bytes kiwi_sparse_bytes_value;"
+    assert generated =~ "2 => \"name\": one kiwi_sparse_string_value;"
+    assert generated =~ "3 => \"origin\": one decode_sparse_point_from_decoder;"
+    assert generated =~ "4 => \"kind\": one decode_sparse_kind_from_decoder;"
+    refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
   end
 
   test "ignores decoder source metadata when skip decoders are not requested" do

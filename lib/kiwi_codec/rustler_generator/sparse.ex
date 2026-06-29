@@ -129,7 +129,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   end
 
   defp descriptor_field_kind(%{array?: true, type: "byte"}, _definition_map),
-    do: "bytes kiwi_sparse_bytes_value"
+    do: "one kiwi_sparse_bytes_value"
 
   defp descriptor_field_kind(%{array?: true} = field, definition_map) do
     ["repeated ", descriptor_scalar_function(%{field | array?: false}, definition_map)]

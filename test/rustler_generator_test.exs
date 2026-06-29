@@ -272,13 +272,14 @@ defmodule KiwiCodec.RustlerGeneratorTest do
 
     assert generated =~ "macro_rules! kiwi_sparse_message_descriptor_decoder"
     assert generated =~ "kiwi_sparse_message_descriptor_decoder!"
-    assert generated =~ "1 => \"hash\": bytes kiwi_sparse_bytes_value;"
+    assert generated =~ "1 => \"hash\": one kiwi_sparse_bytes_value;"
     assert generated =~ "2 => \"name\": one kiwi_sparse_string_value;"
     assert generated =~ "3 => \"origin\": one decode_sparse_point_from_decoder;"
     assert generated =~ "4 => \"kind\": one decode_sparse_kind_from_decoder;"
     assert generated =~ "5 => \"visible\": one kiwi_sparse_bool_value;"
     assert generated =~ "let value = decoder.read_bool()?;"
     assert generated =~ "macro_rules! kiwi_sparse_repeated"
+    refute generated =~ "bytes kiwi_sparse_bytes_value"
     refute generated =~ "enum KiwiSparseKind"
     refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
   end

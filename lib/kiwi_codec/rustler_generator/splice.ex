@@ -405,7 +405,6 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     macro_rules! kiwi_sparse_repeated {
         (one) => { false };
         (repeated) => { true };
-        (bytes) => { false };
     }
 
     #[allow(unused_macros)]

@@ -10,6 +10,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
   alias RustQ.Meta.AST, as: MetaAST
 
   @macros [
+    :kiwi_sparse_enum_decoder,
     :kiwi_sparse_message_descriptor_decoder,
     :kiwi_sparse_skip_message_descriptor_decoder
   ]
@@ -24,6 +25,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     :kiwi_sparse_uint_value,
     :kiwi_sparse_uint64_value,
     :kiwi_sparse_bytes_value,
+    :kiwi_sparse_enum_value,
     :kiwi_sparse_field_value,
     :kiwi_sparse_message_fields,
     :kiwi_sparse_message_fields_remaining
@@ -64,6 +66,11 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
       @type kiwi_sparse_decode_fn ::
               R.raw(:"for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>")
 
+      @type kiwi_sparse_enum_variant :: %{
+              required(:value) => R.u32(),
+              required(:name) => R.raw(:"&'static str")
+            }
+
       @type kiwi_sparse_field :: %{
               required(:id) => R.u32(),
               required(:name) => R.raw(:"&'static str"),
@@ -79,6 +86,39 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
 
   defp macro_definitions do
     [
+      quote do
+        defrustmacro kiwi_sparse_enum_decoder(
+                       fn: name(:ident),
+                       env: env(:ident),
+                       decoder: decoder(:ident),
+                       variants:
+                         repeat do
+                           variant_value(:literal)
+                           variant_name(:literal)
+                         end
+                     ) do
+          @spec name(
+                  R.path(:Env, R.lifetime(:a)),
+                  R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+                ) :: R.nif_result(term())
+          defrust name(env, decoder) do
+            kiwi_sparse_enum_value(
+              env,
+              decoder,
+              ref(
+                array([
+                  repeat variants do
+                    struct_literal(KiwiSparseEnumVariant,
+                      value: variant_value,
+                      name: variant_name
+                    )
+                  end
+                ])
+              )
+            )
+          end
+        end
+      end,
       quote do
         defrustmacro kiwi_sparse_message_descriptor_decoder(
                        fn: name(:ident),
@@ -113,7 +153,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                       id: field_id,
                       name: field_name,
                       repeated: kiwi_sparse_repeated!(field_mode),
-                      decode: kiwi_sparse_decode!(field_decode)
+                      decode: field_decode
                     )
                   end
                 ])
@@ -159,7 +199,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                       id: field_id,
                       name: field_name,
                       repeated: kiwi_sparse_repeated!(field_mode),
-                      decode: kiwi_sparse_decode!(field_decode)
+                      decode: field_decode
                     )
                   end
                 ])
@@ -177,7 +217,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                   repeat fields do
                     struct_literal(KiwiSkipField,
                       id: field_id,
-                      kind: kiwi_skip_kind!(field_skip_mode, kiwi_skip_decode!(field_skip))
+                      kind: kiwi_skip_kind!(field_skip_mode, field_skip)
                     )
                   end
                 ])
@@ -230,10 +270,33 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
 
   defp message_helper_definitions do
     [
+      quote_enum_value(),
       quote_field_value(),
       quote_message_fields(),
       quote_message_fields_remaining()
     ]
+  end
+
+  defp quote_enum_value do
+    quote do
+      @spec kiwi_sparse_enum_value(
+              R.path(:Env, R.lifetime(:a)),
+              R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+              R.slice(R.path(:KiwiSparseEnumVariant))
+            ) :: R.nif_result(term())
+      defrust kiwi_sparse_enum_value(env, decoder, variants) do
+        value = unwrap!(decoder.read_var_uint())
+
+        case variants.binary_search_by_key(ref(value), fn variant -> variant.value end) do
+          {:ok, index} ->
+            variant = variants.get(index).unwrap()
+            {:ok, Atom.from_str(env, variant.name).unwrap().encode(env)}
+
+          {:error, _index} ->
+            {:ok, value.encode(env)}
+        end
+      end
+    end
   end
 
   defp quote_field_value do

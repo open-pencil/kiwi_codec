@@ -13,8 +13,8 @@
   `defrustmacro` and compact `repeat` macro-template support.
 - Share descriptor field inventories between sparse and skip message decoders
   when both descriptor sparse and skip features are generated.
-- Compact primitive aliases inside descriptor macro invocations to reduce
-  generated Rust source size.
+- Author sparse enum descriptor decoding with RustQ-authored `defrust` helpers
+  and item-generating `defrustmacro`.
 - Move descriptor-backed skip message scanning into RustQ-authored `defrust`
   helpers with sorted field lookup.
 - Generate skip descriptor function, enum, and field declarations from RustQ

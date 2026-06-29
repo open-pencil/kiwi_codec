@@ -110,12 +110,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     |> skip_kind_call()
   end
 
-  def field_kind(field, definition_map, opts \\ []) do
-    compact? = Keyword.get(opts, :compact?, false)
-
+  def field_kind(field, definition_map) do
     field
     |> skip_kind(definition_map)
-    |> skip_kind_tokens(compact?)
+    |> skip_kind_tokens()
   end
 
   defp skip_function_name(name), do: ["skip_", RustExpr.ident(name), "_from_decoder"]
@@ -141,24 +139,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     A.try(A.call(function, [:decoder]))
   end
 
-  defp skip_kind_tokens(%Kind{mode: :bytes}, false), do: "bytes kiwi_skip_bytes_value"
-  defp skip_kind_tokens(%Kind{mode: :bytes}, true), do: "bytes bytes"
+  defp skip_kind_tokens(%Kind{mode: :bytes}), do: "bytes kiwi_skip_bytes_value"
 
-  defp skip_kind_tokens(%Kind{mode: mode, function: function}, false),
+  defp skip_kind_tokens(%Kind{mode: mode, function: function}),
     do: [Atom.to_string(mode), " ", Atom.to_string(function)]
-
-  defp skip_kind_tokens(%Kind{mode: mode, function: function}, true),
-    do: [Atom.to_string(mode), " ", compact_skip_function(function)]
-
-  defp compact_skip_function(:kiwi_skip_bool_value), do: "bool"
-  defp compact_skip_function(:kiwi_skip_byte_value), do: "byte"
-  defp compact_skip_function(:kiwi_skip_float_value), do: "float"
-  defp compact_skip_function(:kiwi_skip_int_value), do: "int"
-  defp compact_skip_function(:kiwi_skip_int64_value), do: "int64"
-  defp compact_skip_function(:kiwi_skip_string_value), do: "string"
-  defp compact_skip_function(:kiwi_skip_uint_value), do: "uint"
-  defp compact_skip_function(:kiwi_skip_uint64_value), do: "uint64"
-  defp compact_skip_function(function), do: Atom.to_string(function)
 
   defp scalar_skip_function(type, definition_map) do
     cond do

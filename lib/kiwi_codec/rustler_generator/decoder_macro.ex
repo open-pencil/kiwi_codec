@@ -117,8 +117,9 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   def sparse_enum_decoder(name, variants) do
     variant_entries =
       variants
+      |> Enum.sort_by(& &1.value)
       |> Enum.map(fn field ->
-        [Integer.to_string(field.value), " => ", inspect(Macro.underscore(field.name)), ";"]
+        [Integer.to_string(field.value), " ", inspect(Macro.underscore(field.name)), ";"]
       end)
       |> Enum.intersperse("\n")
 

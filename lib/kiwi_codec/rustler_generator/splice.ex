@@ -288,26 +288,13 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp skip_decoder_macros do
     ~S'''
-    macro_rules! kiwi_skip_decode {
-        (bool) => { kiwi_skip_bool_value };
-        (byte) => { kiwi_skip_byte_value };
-        (float) => { kiwi_skip_float_value };
-        (int) => { kiwi_skip_int_value };
-        (int64) => { kiwi_skip_int64_value };
-        (string) => { kiwi_skip_string_value };
-        (uint) => { kiwi_skip_uint_value };
-        (uint64) => { kiwi_skip_uint64_value };
-        (bytes) => { kiwi_skip_bytes_value };
-        ($skip:ident) => { $skip };
-    }
-
     macro_rules! kiwi_skip_kind {
         (one $skip:ident) => { KiwiSkipKind::One($skip) };
         (repeated $skip:ident) => { KiwiSkipKind::Repeated($skip) };
         (bytes $skip:ident) => { KiwiSkipKind::Bytes };
-        (one, $skip:expr) => { KiwiSkipKind::One($skip) };
-        (repeated, $skip:expr) => { KiwiSkipKind::Repeated($skip) };
-        (bytes, $skip:expr) => { KiwiSkipKind::Bytes };
+        (one, $skip:ident) => { KiwiSkipKind::One($skip) };
+        (repeated, $skip:ident) => { KiwiSkipKind::Repeated($skip) };
+        (bytes, $skip:ident) => { KiwiSkipKind::Bytes };
     }
 
     macro_rules! kiwi_skip_struct_decoder {
@@ -347,7 +334,13 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp sparse_decoder_fragments([], _shared?) do
     [
-      RustQ.Rust.item([sparse_decoder_declarations(), "\n", raw_sparse_value_helpers()]),
+      RustQ.Rust.item([
+        sparse_enum_decoder_macro(),
+        "\n",
+        sparse_struct_decoder_macro(),
+        "\n",
+        raw_sparse_value_helpers()
+      ]),
       sparse_descriptor_macros(),
       RustQ.Rust.item(sparse_message_decoder_macro())
     ]
@@ -355,14 +348,14 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp sparse_decoder_fragments(decoder_sources, shared?) do
     [
-      RustQ.Rust.item(sparse_decoder_declarations()),
+      RustQ.Rust.item(sparse_struct_decoder_macro()),
       sparse_repeated_macro_fragment(),
       SparseHelpers.fragments(decoder_sources, macros: sparse_helper_macros(shared?)),
       RustQ.Rust.item(sparse_message_decoder_macro())
     ]
   end
 
-  defp sparse_decoder_declarations do
+  defp sparse_enum_decoder_macro do
     ~S'''
     #[allow(unused_macros)]
     macro_rules! kiwi_sparse_enum_decoder {
@@ -370,7 +363,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
             fn $name:ident;
             env $env:ident;
             decoder $decoder:ident;
-            variants [$($value:literal => $atom_name:literal;)*]
+            variants [$($value:literal $atom_name:literal;)*]
         ) => {
             fn $name<'a>($env: Env<'a>, $decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
                 match $decoder.read_var_uint()? as i64 {
@@ -382,20 +375,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
             }
         };
     }
+    '''
+  end
 
-    macro_rules! kiwi_sparse_decode {
-        (bool) => { kiwi_sparse_bool_value };
-        (byte) => { kiwi_sparse_byte_value };
-        (float) => { kiwi_sparse_float_value };
-        (int) => { kiwi_sparse_int_value };
-        (int64) => { kiwi_sparse_int64_value };
-        (string) => { kiwi_sparse_string_value };
-        (uint) => { kiwi_sparse_uint_value };
-        (uint64) => { kiwi_sparse_uint64_value };
-        (bytes) => { kiwi_sparse_bytes_value };
-        ($decode:ident) => { $decode };
-    }
-
+  defp sparse_struct_decoder_macro do
+    ~S'''
     macro_rules! kiwi_sparse_struct_decoder {
         (
             fn $name:ident;
@@ -464,8 +448,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
-  defp sparse_helper_macros(true), do: [:kiwi_sparse_skip_message_descriptor_decoder]
-  defp sparse_helper_macros(false), do: [:kiwi_sparse_message_descriptor_decoder]
+  defp sparse_helper_macros(true),
+    do: [:kiwi_sparse_enum_decoder, :kiwi_sparse_skip_message_descriptor_decoder]
+
+  defp sparse_helper_macros(false),
+    do: [:kiwi_sparse_enum_decoder, :kiwi_sparse_message_descriptor_decoder]
 
   defp sparse_descriptor_macros do
     [

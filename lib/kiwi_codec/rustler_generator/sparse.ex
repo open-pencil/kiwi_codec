@@ -102,9 +102,9 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
         [
           Integer.to_string(field.id),
           " => ",
-          descriptor_field_entry(field, definition_map, compact?: true),
+          descriptor_field_entry(field, definition_map),
           " ",
-          Skip.field_kind(field, definition_map, compact?: true),
+          Skip.field_kind(field, definition_map),
           ";"
         ]
       end)
@@ -170,36 +170,28 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
     ]
   end
 
-  defp descriptor_field_entry(field, definition_map, opts \\ []) do
-    compact? = Keyword.get(opts, :compact?, false)
-
+  defp descriptor_field_entry(field, definition_map) do
     [
       inspect(Macro.underscore(field.name)),
       ": ",
-      descriptor_field_kind(field, definition_map, compact?),
+      descriptor_field_kind(field, definition_map),
       ";"
     ]
   end
 
-  defp descriptor_field_kind(%{array?: true, type: "byte"}, _definition_map, false),
+  defp descriptor_field_kind(%{array?: true, type: "byte"}, _definition_map),
     do: "one kiwi_sparse_bytes_value"
 
-  defp descriptor_field_kind(%{array?: true, type: "byte"}, _definition_map, true),
-    do: "one bytes"
-
-  defp descriptor_field_kind(%{array?: true} = field, definition_map, compact?) do
-    ["repeated ", descriptor_scalar_function(%{field | array?: false}, definition_map, compact?)]
+  defp descriptor_field_kind(%{array?: true} = field, definition_map) do
+    ["repeated ", descriptor_scalar_function(%{field | array?: false}, definition_map)]
   end
 
-  defp descriptor_field_kind(field, definition_map, compact?) do
-    ["one ", descriptor_scalar_function(field, definition_map, compact?)]
+  defp descriptor_field_kind(field, definition_map) do
+    ["one ", descriptor_scalar_function(field, definition_map)]
   end
 
-  defp descriptor_scalar_function(%{type: type}, definition_map, compact?) do
+  defp descriptor_scalar_function(%{type: type}, definition_map) do
     cond do
-      KiwiCodec.PrimitiveType.name?(type) and compact? ->
-        RustExpr.ident(type)
-
       KiwiCodec.PrimitiveType.name?(type) ->
         ["kiwi_sparse_", RustExpr.ident(type), "_value"]
 

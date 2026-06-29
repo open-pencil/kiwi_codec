@@ -30,6 +30,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     :kiwi_sparse_field_value,
     :kiwi_sparse_struct_field_value,
     :kiwi_sparse_struct_fields,
+    :kiwi_skip_descriptor_kind,
     :kiwi_sparse_struct_fields_remaining,
     :kiwi_sparse_message_fields,
     :kiwi_sparse_message_fields_remaining
@@ -226,7 +227,8 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                            field_name(:literal)
                            field_mode(:ident)
                            field_decode(:ident)
-                           field_skip_mode(:ident)
+                           field_skip_repeated(:literal)
+                           field_skip_bytes(:literal)
                            field_skip(:ident)
                          end
                      ) do
@@ -266,7 +268,12 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                   repeat fields do
                     struct_literal(KiwiSkipField,
                       id: field_id,
-                      kind: kiwi_skip_kind!(field_skip_mode, field_skip)
+                      kind:
+                        kiwi_skip_descriptor_kind(
+                          field_skip_repeated,
+                          field_skip_bytes,
+                          field_skip
+                        )
                     )
                   end
                 ])
@@ -324,6 +331,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
       quote_struct_field_value(),
       quote_struct_fields(),
       quote_struct_fields_remaining(),
+      quote_skip_descriptor_kind(),
       quote_message_fields(),
       quote_message_fields_remaining()
     ]
@@ -442,6 +450,24 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
           values.push(unwrap!(kiwi_sparse_struct_field_value(env, decoder, field)))
 
           kiwi_sparse_struct_fields_remaining(env, decoder, fields, index + 1, keys, values)
+        end
+      end
+    end
+  end
+
+  defp quote_skip_descriptor_kind do
+    quote do
+      @spec kiwi_skip_descriptor_kind(R.bool(), R.bool(), R.path(:KiwiSkipFn)) ::
+              R.path(:KiwiSkipKind)
+      defrust kiwi_skip_descriptor_kind(repeated, bytes, skip) do
+        if bytes do
+          enum_variant(KiwiSkipKind, :bytes)
+        else
+          if repeated do
+            enum_variant(KiwiSkipKind, :repeated, skip)
+          else
+            enum_variant(KiwiSkipKind, :one, skip)
+          end
         end
       end
     end

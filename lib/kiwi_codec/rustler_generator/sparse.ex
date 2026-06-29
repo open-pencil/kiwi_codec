@@ -140,7 +140,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
           " => ",
           descriptor_field_entry(field, definition_map),
           " ",
-          Skip.field_kind(field, definition_map),
+          Skip.descriptor_field_kind(field, definition_map),
           ";"
         ]
       end)

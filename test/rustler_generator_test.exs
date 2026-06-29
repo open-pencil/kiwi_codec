@@ -274,11 +274,24 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "kiwi_sparse_skip_message_descriptor_decoder!"
     refute generated =~ "macro_rules! kiwi_sparse_message_decoder"
     refute generated =~ "macro_rules! kiwi_skip_message_decoder"
-    assert generated =~ "1 => \"hash\": one kiwi_sparse_bytes_value;"
-    assert generated =~ "2 => \"name\": one kiwi_sparse_string_value;"
-    assert generated =~ "3 => \"origin\": one decode_sparse_point_from_decoder;"
-    assert generated =~ "4 => \"kind\": one decode_sparse_kind_from_decoder;"
-    assert generated =~ "5 => \"visible\": one kiwi_sparse_bool_value;"
+    refute generated =~ "macro_rules! kiwi_skip_kind"
+    refute generated =~ "kiwi_skip_kind!"
+
+    assert generated =~
+             "1 => \"hash\": one kiwi_sparse_bytes_value; false true kiwi_skip_bytes_value;"
+
+    assert generated =~
+             "2 => \"name\": one kiwi_sparse_string_value; false false kiwi_skip_string_value;"
+
+    assert generated =~
+             "3 => \"origin\": one decode_sparse_point_from_decoder; false false skip_point_from_decoder;"
+
+    assert generated =~
+             "4 => \"kind\": one decode_sparse_kind_from_decoder; false false kiwi_skip_uint_value;"
+
+    assert generated =~
+             "5 => \"visible\": one kiwi_sparse_bool_value; false false kiwi_skip_bool_value;"
+
     assert generated =~ "let value = decoder.read_bool()?;"
     assert generated =~ "macro_rules! kiwi_sparse_repeated"
     refute generated =~ "bytes kiwi_sparse_bytes_value"

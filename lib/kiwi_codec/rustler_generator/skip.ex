@@ -137,6 +137,12 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     |> skip_kind_tokens()
   end
 
+  def descriptor_field_kind(field, definition_map) do
+    field
+    |> skip_kind(definition_map)
+    |> descriptor_kind_tokens()
+  end
+
   defp skip_function_name(name), do: ["skip_", RustExpr.ident(name), "_from_decoder"]
 
   defp skip_kind(%{array?: true, type: "byte"}, _definition_map),
@@ -166,7 +172,12 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     do: [Atom.to_string(mode), " ", Atom.to_string(function)]
 
   defp struct_descriptor_field_kind(field, definition_map) do
-    kind = skip_kind(field, definition_map)
+    field
+    |> skip_kind(definition_map)
+    |> descriptor_kind_tokens()
+  end
+
+  defp descriptor_kind_tokens(%Kind{} = kind) do
     [repeated_literal(kind), " ", bytes_literal(kind), " ", Atom.to_string(kind.function)]
   end
 

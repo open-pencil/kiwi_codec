@@ -139,7 +139,12 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     [
       SkipHelpers.fragments(decoder_sources),
       RustQ.Rust.item(
-        skip_decoder_dispatch(message_fields?: false, shared?: shared?, struct_fields?: false)
+        skip_decoder_dispatch(
+          message_fields?: false,
+          struct_fields?: false,
+          raw_struct_macro?: false,
+          raw_message_macro?: not shared?
+        )
       )
     ]
   end
@@ -176,7 +181,12 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
       "\n",
       raw_skip_value_helpers(),
       "\n",
-      skip_decoder_dispatch(message_fields?: true, shared?: false, struct_fields?: true)
+      skip_decoder_dispatch(
+        message_fields?: true,
+        struct_fields?: true,
+        raw_struct_macro?: true,
+        raw_message_macro?: true
+      )
     ]
   end
 
@@ -236,13 +246,14 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp skip_decoder_dispatch(opts) do
     message_fields? = Keyword.fetch!(opts, :message_fields?)
-    shared? = Keyword.fetch!(opts, :shared?)
     struct_fields? = Keyword.fetch!(opts, :struct_fields?)
+    raw_struct_macro? = Keyword.fetch!(opts, :raw_struct_macro?)
+    raw_message_macro? = Keyword.fetch!(opts, :raw_message_macro?)
 
     [
       skip_decoder_dispatch_base(struct_fields?),
       if(message_fields?, do: skip_message_fields_dispatch(), else: []),
-      skip_decoder_macros(shared?)
+      skip_decoder_macros(raw_struct_macro?, raw_message_macro?)
     ]
   end
 
@@ -304,14 +315,17 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
-  defp skip_decoder_macros(true), do: skip_kind_macro()
-
-  defp skip_decoder_macros(false) do
-    [
-      skip_kind_macro(),
-      raw_skip_struct_decoder_macro(),
-      raw_skip_message_decoder_macro()
+  defp skip_decoder_macros(raw_struct_macro?, raw_message_macro?) do
+    raw_macros = [
+      if(raw_struct_macro?, do: raw_skip_struct_decoder_macro(), else: []),
+      if(raw_message_macro?, do: raw_skip_message_decoder_macro(), else: [])
     ]
+
+    if raw_struct_macro? or raw_message_macro? do
+      [skip_kind_macro(), raw_macros]
+    else
+      []
+    end
   end
 
   defp skip_kind_macro do

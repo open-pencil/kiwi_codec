@@ -19,6 +19,8 @@
   descriptor sparse generation does not use them.
 - Author decoder-source skip struct decoders with RustQ-authored `defrust`
   helpers and item-generating `defrustmacro`.
+- Replace active shared sparse/skip descriptor `kiwi_skip_kind!` token macro use
+  with explicit descriptor metadata and RustQ-authored enum construction.
 - Move descriptor-backed skip message scanning into RustQ-authored `defrust`
   helpers with sorted field lookup.
 - Generate skip descriptor function, enum, and field declarations from RustQ

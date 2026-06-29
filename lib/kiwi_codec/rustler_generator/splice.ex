@@ -9,6 +9,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   alias KiwiCodec.RustlerGenerator.SkipHelpers
   alias KiwiCodec.RustlerGenerator.SparseHelpers
+  alias RustQ.Rust.AST.Builder, as: A
 
   @spec rustler_helpers(keyword()) :: [RustQ.Rust.Fragment.t()]
   def rustler_helpers(opts \\ []) do
@@ -290,23 +291,20 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
-  defp sparse_decoder_fragments([]), do: [RustQ.Rust.item(sparse_decoder_macros())]
+  defp sparse_decoder_fragments([]) do
+    [
+      RustQ.Rust.item([sparse_decoder_declarations(), "\n", raw_sparse_value_helpers()]),
+      sparse_descriptor_macros(),
+      RustQ.Rust.item(sparse_message_decoder_macro())
+    ]
+  end
 
   defp sparse_decoder_fragments(decoder_sources) do
     [
       RustQ.Rust.item(sparse_decoder_declarations()),
       SparseHelpers.fragments(decoder_sources),
-      RustQ.Rust.item(sparse_decoder_dispatch_macros())
-    ]
-  end
-
-  defp sparse_decoder_macros do
-    [
-      sparse_decoder_declarations(),
-      "\n",
-      raw_sparse_value_helpers(),
-      "\n",
-      sparse_decoder_dispatch_macros()
+      sparse_descriptor_macros(),
+      RustQ.Rust.item(sparse_message_decoder_macro())
     ]
   end
 
@@ -399,38 +397,102 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     '''
   end
 
-  defp sparse_decoder_dispatch_macros do
+  defp sparse_descriptor_macros do
+    [
+      RustQ.Rust.to_fragment(sparse_repeated_macro()),
+      "\n",
+      RustQ.Rust.to_fragment(sparse_message_descriptor_macro())
+    ]
+  end
+
+  defp sparse_repeated_macro do
+    A.macro_rules(
+      :kiwi_sparse_repeated,
+      [
+        A.macro_rule(["one"], ["false"]),
+        A.macro_rule(["repeated"], ["true"])
+      ],
+      attrs: [A.allow_attr(:unused_macros)]
+    )
+  end
+
+  defp sparse_message_descriptor_macro do
+    A.macro_rules(
+      :kiwi_sparse_message_descriptor_decoder,
+      A.macro_rule(
+        [
+          "fn ",
+          A.macro_var(:name, :ident),
+          ";\n            env ",
+          A.macro_var(:env, :ident),
+          ";\n            decoder ",
+          A.macro_var(:decoder, :ident),
+          ";\n            module ",
+          A.macro_var(:module_name, :literal),
+          ";\n            definition ",
+          A.macro_var(:definition_name, :literal),
+          ";\n            capacity ",
+          A.macro_var(:capacity, :literal),
+          ";\n            fields [",
+          A.macro_repeat([
+            A.macro_var(:field_id, :literal),
+            " => ",
+            A.macro_var(:field_name, :literal),
+            ": ",
+            A.macro_var(:field_mode, :ident),
+            " ",
+            A.macro_var(:field_decode, :ident),
+            ";"
+          ]),
+          "]"
+        ],
+        [
+          "fn ",
+          A.macro_capture(:name),
+          "<'a>(",
+          A.macro_capture(:env),
+          ": Env<'a>, ",
+          A.macro_capture(:decoder),
+          ": &mut Decoder<'_>) -> NifResult<Term<'a>> {\n",
+          "    kiwi_sparse_message_fields(\n",
+          "        ",
+          A.macro_capture(:env),
+          ",\n",
+          "        ",
+          A.macro_capture(:decoder),
+          ",\n",
+          "        ",
+          A.macro_capture(:module_name),
+          ",\n",
+          "        ",
+          A.macro_capture(:definition_name),
+          ",\n",
+          "        ",
+          A.macro_capture(:capacity),
+          ",\n",
+          "        &[",
+          A.macro_repeat([
+            "KiwiSparseField { id: ",
+            A.macro_capture(:field_id),
+            ", name: ",
+            A.macro_capture(:field_name),
+            ", repeated: kiwi_sparse_repeated!(",
+            A.macro_capture(:field_mode),
+            "), decode: ",
+            A.macro_capture(:field_decode),
+            " },"
+          ]),
+          "],\n",
+          "    )\n",
+          "}"
+        ]
+      ),
+      attrs: [A.allow_attr(:unused_macros)]
+    )
+  end
+
+  defp sparse_message_decoder_macro do
     ~S'''
-    #[allow(unused_macros)]
-    macro_rules! kiwi_sparse_repeated {
-        (one) => { false };
-        (repeated) => { true };
-    }
-
-    #[allow(unused_macros)]
-    macro_rules! kiwi_sparse_message_descriptor_decoder {
-        (
-            fn $name:ident;
-            env $env:ident;
-            decoder $decoder:ident;
-            module $module_name:literal;
-            definition $definition_name:literal;
-            capacity $capacity:literal;
-            fields [$($field_id:literal => $field_name:literal: $field_mode:ident $field_decode:ident;)*]
-        ) => {
-            fn $name<'a>($env: Env<'a>, $decoder: &mut Decoder<'_>) -> NifResult<Term<'a>> {
-                kiwi_sparse_message_fields(
-                    $env,
-                    $decoder,
-                    $module_name,
-                    $definition_name,
-                    $capacity,
-                    &[$(KiwiSparseField { id: $field_id, name: $field_name, repeated: kiwi_sparse_repeated!($field_mode), decode: $field_decode },)*],
-                )
-            }
-        };
-    }
-
     #[allow(unused_macros)]
     macro_rules! kiwi_sparse_message_decoder {
         (

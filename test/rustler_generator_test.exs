@@ -222,6 +222,7 @@ defmodule KiwiCodec.RustlerGeneratorTest do
         module_prefix: "Example.Schema"
       )
 
+    refute generated =~ "macro_rules! kiwi_message_decoder"
     assert generated =~ "macro_rules! kiwi_sparse_message_decoder"
     assert generated =~ "kiwi_sparse_message_decoder!"
     assert generated =~ "fn decode_sparse_image_from_decoder"

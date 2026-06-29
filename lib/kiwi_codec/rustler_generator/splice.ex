@@ -11,9 +11,10 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   @spec rustler_helpers(keyword()) :: [RustQ.Rust.Fragment.t()]
   def rustler_helpers(opts \\ []) do
-    decoder_sources = skip_decoder_sources(opts)
+    features = Keyword.get(opts, :features, [:full])
+    decoder_sources = skip_decoder_sources(opts, features)
 
-    decoder_macros(decoder_sources) ++
+    decoder_macros(features, decoder_sources) ++
       RustQ.Rustler.cached_atoms([]) ++
       RustQ.Rustler.term_helpers(
         include: [
@@ -24,9 +25,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
       )
   end
 
-  defp skip_decoder_sources(opts) do
-    features = Keyword.get(opts, :features, [:full])
-
+  defp skip_decoder_sources(opts, features) do
     if :skip in features do
       Keyword.get(opts, :decoder_sources, [])
     else
@@ -34,11 +33,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     end
   end
 
-  defp decoder_macros(decoder_sources) do
+  defp decoder_macros(features, decoder_sources) do
     [
-      RustQ.Rust.item(full_decoder_macros()),
-      skip_decoder_fragments(decoder_sources),
-      RustQ.Rust.item(sparse_decoder_macros())
+      if(:full in features, do: RustQ.Rust.item(full_decoder_macros()), else: []),
+      if(:skip in features, do: skip_decoder_fragments(decoder_sources), else: []),
+      if(:sparse in features, do: RustQ.Rust.item(sparse_decoder_macros()), else: [])
     ]
     |> List.flatten()
   end

@@ -3,7 +3,16 @@
 ## Unreleased
 
 - Add optional `decoder_sources` metadata for RustQ-authored skip helpers.
-- Update RustQ dependency to `~> 0.8.3`.
+- Emit Rustler macro prelude helpers only for requested generator features.
+- Add opt-in descriptor-backed sparse message generation with
+  `sparse_messages: :descriptor`.
+- Move sparse primitive value helpers, descriptor scanning, descriptor dispatch,
+  and sparse descriptor declarations into RustQ-authored `defrust` / `@type`
+  support.
+- Author the sparse message descriptor macro with item-generating
+  `defrustmacro` and compact `repeat` macro-template support.
+- Collapse the separate sparse bytes descriptor mode into ordinary `one`
+  descriptor mode.
 
 ## v0.2.2 - 2026-06-28
 

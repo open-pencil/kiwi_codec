@@ -8,8 +8,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   """
 
   alias KiwiCodec.RustlerGenerator.RustExpr
+  alias KiwiCodec.RustlerGenerator.SkipValueHelpers
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
+  alias RustQ.Meta.AST, as: MetaAST
   alias RustQ.Rust
   alias RustQ.Rust.AST
   alias RustQ.Rust.AST.Builder, as: A
@@ -58,89 +60,51 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   defp definition(definition, definition_map, messages?, struct_mode)
   defp definition(%SchemaEnum{}, _definition_map, _messages?, _struct_mode), do: []
 
-  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?, :match) do
-    Rust.item([
-      "kiwi_skip_struct_decoder! {\n",
-      "    fn ",
-      skip_function_name(name),
-      ";\n",
-      "    decoder decoder;\n",
-      "    fields [\n",
-      RustExpr.indent(field_kinds(fields, definition_map), 8),
-      "\n    ]\n",
-      "}"
-    ])
-  end
-
-  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?, :descriptor) do
-    Rust.item([
-      "kiwi_skip_struct_decoder! {\n",
-      "    fn ",
-      skip_function_name(name),
-      ";\n",
-      "    decoder decoder;\n",
-      "    fields [\n",
-      RustExpr.indent(struct_descriptor_field_kinds(fields, definition_map), 8),
-      "\n    ]\n",
-      "}"
-    ])
+  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?, _struct_mode) do
+    MetaAST.macro_call(SkipValueHelpers, :kiwi_skip_struct_decoder,
+      fn: skip_function_name(name),
+      decoder: :decoder,
+      fields: skip_descriptor_rows(fields, definition_map)
+    )
   end
 
   defp definition(%Message{}, _definition_map, false, _struct_mode), do: []
 
   defp definition(%Message{name: name, fields: fields}, definition_map, true, _struct_mode) do
-    Rust.item([
-      "kiwi_skip_message_decoder! {\n",
-      "    fn ",
-      skip_function_name(name),
-      ";\n",
-      "    decoder decoder;\n",
-      "    definition ",
-      inspect(name),
-      ";\n",
-      "    fields [\n",
-      RustExpr.indent(field_entries(fields, definition_map), 8),
-      "\n    ]\n",
-      "}"
-    ])
+    MetaAST.macro_call(SkipValueHelpers, :kiwi_skip_message_decoder,
+      fn: skip_function_name(name),
+      decoder: :decoder,
+      definition: name,
+      fields: skip_message_descriptor_rows(fields, definition_map)
+    )
   end
 
-  defp field_entries(fields, definition_map) do
-    fields
-    |> Enum.map(fn field ->
-      [Integer.to_string(field.id), " => ", field_kind(field, definition_map), ";"]
+  defp skip_message_descriptor_rows(fields, definition_map) do
+    Enum.map(fields, fn field ->
+      field
+      |> skip_descriptor_row(definition_map)
+      |> Keyword.put(:field_id, field.id)
     end)
-    |> Enum.intersperse("\n")
   end
 
-  defp field_kinds(fields, definition_map) do
-    fields
-    |> Enum.map(&[field_kind(&1, definition_map), ";"])
-    |> Enum.intersperse("\n")
+  defp skip_descriptor_rows(fields, definition_map) do
+    Enum.map(fields, &skip_descriptor_row(&1, definition_map))
   end
 
-  defp struct_descriptor_field_kinds(fields, definition_map) do
-    fields
-    |> Enum.map(&[struct_descriptor_field_kind(&1, definition_map), ";"])
-    |> Enum.intersperse("\n")
+  defp skip_descriptor_row(field, definition_map) do
+    kind = skip_kind(field, definition_map)
+
+    [
+      field_repeated: match?(%Kind{mode: :repeated}, kind),
+      field_bytes: match?(%Kind{mode: :bytes}, kind),
+      field_skip: kind.function
+    ]
   end
 
   defp skip_call(field, definition_map) do
     field
     |> skip_kind(definition_map)
     |> skip_kind_call()
-  end
-
-  def field_kind(field, definition_map) do
-    field
-    |> skip_kind(definition_map)
-    |> skip_kind_tokens()
-  end
-
-  def descriptor_field_kind(field, definition_map) do
-    field
-    |> skip_kind(definition_map)
-    |> descriptor_kind_tokens()
   end
 
   defp skip_function_name(name), do: ["skip_", RustExpr.ident(name), "_from_decoder"]
@@ -165,27 +129,6 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   defp skip_kind_call(%Kind{mode: :one, function: function}) do
     A.try(A.call(function, [:decoder]))
   end
-
-  defp skip_kind_tokens(%Kind{mode: :bytes}), do: "bytes kiwi_skip_bytes_value"
-
-  defp skip_kind_tokens(%Kind{mode: mode, function: function}),
-    do: [Atom.to_string(mode), " ", Atom.to_string(function)]
-
-  defp struct_descriptor_field_kind(field, definition_map) do
-    field
-    |> skip_kind(definition_map)
-    |> descriptor_kind_tokens()
-  end
-
-  defp descriptor_kind_tokens(%Kind{} = kind) do
-    [repeated_literal(kind), " ", bytes_literal(kind), " ", Atom.to_string(kind.function)]
-  end
-
-  defp repeated_literal(%Kind{mode: :repeated}), do: "true"
-  defp repeated_literal(%Kind{}), do: "false"
-
-  defp bytes_literal(%Kind{mode: :bytes}), do: "true"
-  defp bytes_literal(%Kind{}), do: "false"
 
   defp scalar_skip_function(type, definition_map) do
     cond do

@@ -8,203 +8,55 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   authoring in Elixir/RustQ while preserving small generated source.
   """
 
+  alias KiwiCodec.RustlerGenerator.FullDecoderHelpers
   alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.RustlerGenerator.RustExpr
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
-  alias RustQ.Rust
 
   @spec enum_decoder(SchemaEnum.t()) :: RustQ.Rust.Fragment.t()
   def enum_decoder(%SchemaEnum{} = definition) do
-    variants =
-      definition.variants
-      |> Enum.map(fn field ->
-        [Integer.to_string(field.value), " => ", inspect(Name.field_name(field.name)), ";"]
-      end)
-      |> Enum.intersperse("\n")
-
-    Rust.item([
-      "kiwi_enum_decoder! {\n",
-      "    fn ",
-      RustExpr.ident(Name.decoder_function(definition.name)),
-      ";\n",
-      "    variants [\n",
-      RustExpr.indent(variants, 8),
-      "\n    ]\n",
-      "}"
-    ])
+    FullDecoderHelpers.macro_call(:kiwi_enum_decoder,
+      fn: RustExpr.ident(Name.decoder_function(definition.name)),
+      env: :env,
+      decoder: :decoder,
+      variants:
+        Enum.map(definition.variants, fn field ->
+          [variant_value: field.value, variant_name: Name.field_name(field.name)]
+        end)
+    )
   end
 
   @spec struct_decoder(Struct.t(), String.t(), map(), (term(), map() -> iodata())) ::
           RustQ.Rust.Fragment.t()
   def struct_decoder(%Struct{} = definition, module_prefix, definition_map, field_expr_fun) do
-    field_exprs = Enum.map(definition.fields, &field_expr_fun.(&1, definition_map))
-
-    Rust.item([
-      "kiwi_struct_decoder! {\n",
-      "    fn ",
-      RustExpr.ident(Name.decoder_function(definition.name)),
-      ";\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    module_static ",
-      RustExpr.ident(Name.module_atom_static(definition.name)),
-      ";\n",
-      "    keys_static ",
-      RustExpr.ident(Name.struct_keys_static(definition.name)),
-      ";\n",
-      "    module ",
-      inspect(Name.module_name(module_prefix, definition.name)),
-      ";\n",
-      "    keys [",
-      key_list(definition.fields),
-      "];\n",
-      "    fields [\n",
-      RustExpr.indent(Enum.intersperse(field_exprs, ",\n"), 8),
-      "\n    ]\n",
-      "}"
-    ])
+    FullDecoderHelpers.macro_call(:kiwi_struct_decoder,
+      fn: RustExpr.ident(Name.decoder_function(definition.name)),
+      env: :env,
+      decoder: :decoder,
+      module_static: RustExpr.ident(Name.module_atom_static(definition.name)),
+      keys_static: RustExpr.ident(Name.struct_keys_static(definition.name)),
+      module: Name.module_name(module_prefix, definition.name),
+      keys: key_rows(definition.fields),
+      fields: field_expr_rows(definition.fields, definition_map, field_expr_fun)
+    )
   end
 
   @spec message_decoder(Message.t(), String.t(), map(), (term(), map() -> iodata())) ::
           RustQ.Rust.Fragment.t()
-  def message_decoder(%Message{} = definition, module_prefix, definition_map, field_expr_fun) do
-    field_entries =
-      definition.fields
-      |> Enum.with_index()
-      |> Enum.map(fn {field, index} ->
-        [
-          Integer.to_string(field.id),
-          " => ",
-          Integer.to_string(index + 1),
-          ": ",
-          field_expr_fun.(field, definition_map),
-          ";"
-        ]
-      end)
-      |> Enum.intersperse("\n")
-
-    Rust.item([
-      "kiwi_message_decoder! {\n",
-      "    fn ",
-      RustExpr.ident(Name.decoder_function(definition.name)),
-      ";\n",
-      "    fields_fn ",
-      RustExpr.ident(Name.message_fields_function(definition.name)),
-      ";\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    module_static ",
-      RustExpr.ident(Name.module_atom_static(definition.name)),
-      ";\n",
-      "    keys_static ",
-      RustExpr.ident(Name.struct_keys_static(definition.name)),
-      ";\n",
-      "    module ",
-      inspect(Name.module_name(module_prefix, definition.name)),
-      ";\n",
-      "    keys [",
-      key_list(definition.fields),
-      "];\n",
-      "    fields [\n",
-      RustExpr.indent(field_entries, 8),
-      "\n    ]\n",
-      "}"
-    ])
+  def message_decoder(%Message{} = definition, module_prefix, definition_map, _field_expr_fun) do
+    FullDecoderHelpers.macro_call(:kiwi_message_decoder,
+      fn: RustExpr.ident(Name.decoder_function(definition.name)),
+      fields_fn: RustExpr.ident(Name.message_fields_function(definition.name)),
+      env: :env,
+      decoder: :decoder,
+      module_static: RustExpr.ident(Name.module_atom_static(definition.name)),
+      keys_static: RustExpr.ident(Name.struct_keys_static(definition.name)),
+      module: Name.module_name(module_prefix, definition.name),
+      keys: key_rows(definition.fields),
+      fields: message_field_rows(definition.fields, definition_map)
+    )
   end
-
-  @spec sparse_enum_decoder(String.t(), [term()]) :: RustQ.Rust.Fragment.t()
-  def sparse_enum_decoder(name, variants) do
-    variant_entries =
-      variants
-      |> Enum.sort_by(& &1.value)
-      |> Enum.map(fn field ->
-        [Integer.to_string(field.value), " ", inspect(Macro.underscore(field.name)), ";"]
-      end)
-      |> Enum.intersperse("\n")
-
-    Rust.item([
-      "kiwi_sparse_enum_decoder! {\n",
-      "    fn decode_sparse_",
-      RustExpr.ident(name),
-      "_from_decoder;\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    variants [\n",
-      RustExpr.indent(variant_entries, 8),
-      "\n    ]\n",
-      "}"
-    ])
-  end
-
-  @spec sparse_struct_decoder(String.t(), String.t(), pos_integer(), iodata()) ::
-          RustQ.Rust.Fragment.t()
-  def sparse_struct_decoder(name, module_name, capacity, field_entries) do
-    Rust.item([
-      "kiwi_sparse_struct_decoder! {\n",
-      "    fn decode_sparse_",
-      RustExpr.ident(name),
-      "_from_decoder;\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    module ",
-      inspect(module_name),
-      ";\n",
-      "    capacity ",
-      Integer.to_string(capacity),
-      ";\n",
-      "    fields [\n",
-      RustExpr.indent(field_entries, 8),
-      "\n    ]\n",
-      "}"
-    ])
-  end
-
-  @spec sparse_struct_descriptor_decoder(String.t(), String.t(), pos_integer(), iodata()) ::
-          RustQ.Rust.Fragment.t()
-  def sparse_struct_descriptor_decoder(name, module_name, capacity, field_entries) do
-    sparse_struct_decoder(name, module_name, capacity, field_entries)
-  end
-
-  @spec sparse_message_decoder(String.t(), String.t(), pos_integer(), iodata()) ::
-          RustQ.Rust.Fragment.t()
-  def sparse_message_decoder(name, module_name, capacity, field_entries) do
-    sparse_message_decoder(:match, name, module_name, capacity, field_entries)
-  end
-
-  @spec sparse_message_descriptor_decoder(String.t(), String.t(), pos_integer(), iodata()) ::
-          RustQ.Rust.Fragment.t()
-  def sparse_message_descriptor_decoder(name, module_name, capacity, field_entries) do
-    sparse_message_decoder(:descriptor, name, module_name, capacity, field_entries)
-  end
-
-  defp sparse_message_decoder(mode, name, module_name, capacity, field_entries) do
-    Rust.item([
-      sparse_message_macro_name(mode),
-      " {\n",
-      "    fn decode_sparse_",
-      RustExpr.ident(name),
-      "_from_decoder;\n",
-      "    env env;\n",
-      "    decoder decoder;\n",
-      "    module ",
-      inspect(module_name),
-      ";\n",
-      "    definition ",
-      inspect(name),
-      ";\n",
-      "    capacity ",
-      Integer.to_string(capacity),
-      ";\n",
-      "    fields [\n",
-      RustExpr.indent(field_entries, 8),
-      "\n    ]\n",
-      "}"
-    ])
-  end
-
-  defp sparse_message_macro_name(:match), do: "kiwi_sparse_message_decoder!"
-  defp sparse_message_macro_name(:descriptor), do: "kiwi_sparse_message_descriptor_decoder!"
 
   defmacro entrypoint(nif_name, decoder_name) do
     nif_name = expand_arg!(nif_name, __CALLER__)
@@ -236,9 +88,40 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
     value
   end
 
-  defp key_list(fields) do
+  defp key_rows(fields) do
+    Enum.map(fields, &[key: Name.field_name(&1.name)])
+  end
+
+  defp field_expr_rows(fields, definition_map, field_expr_fun) do
+    Enum.map(fields, &[field_expr: field_expr_fun.(&1, definition_map)])
+  end
+
+  defp message_field_rows(fields, definition_map) do
     fields
-    |> Enum.map(&(&1.name |> Name.field_name() |> inspect()))
-    |> Enum.intersperse(", ")
+    |> Enum.with_index()
+    |> Enum.map(fn {field, index} ->
+      [
+        field_id: field.id,
+        field_index: index + 1,
+        field_repeated: repeated_field?(field),
+        field_decode: full_decode_function(field, definition_map)
+      ]
+    end)
+  end
+
+  defp repeated_field?(%{array?: true, type: "byte"}), do: false
+  defp repeated_field?(%{array?: array?}), do: array?
+
+  defp full_decode_function(%{array?: true, type: "byte"}, _definition_map),
+    do: :kiwi_full_bytes_value
+
+  defp full_decode_function(%{array?: true} = field, definition_map),
+    do: full_decode_function(%{field | array?: false}, definition_map)
+
+  defp full_decode_function(%{type: type}, definition_map) do
+    case RustExpr.primitive(type) do
+      nil -> Name.decoder_function(Map.fetch!(definition_map, type).name)
+      _expr -> RustQ.Atom.identifier!("kiwi_full_#{RustExpr.ident(type)}_value")
+    end
   end
 end

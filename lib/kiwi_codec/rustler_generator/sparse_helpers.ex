@@ -36,6 +36,13 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     :kiwi_sparse_message_fields_remaining
   ]
 
+  @spec macro_call(atom(), keyword()) :: RustQ.Rust.Fragment.t()
+  def macro_call(name, args) do
+    []
+    |> generated_module!()
+    |> MetaAST.macro_call(name, args)
+  end
+
   @spec fragments([Path.t()] | Path.t(), keyword()) :: [RustQ.Rust.Fragment.t()]
   def fragments(decoder_sources, opts \\ []) do
     module = generated_module!(decoder_sources)
@@ -140,7 +147,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                        fields:
                          repeat do
                            field_name(:literal)
-                           field_mode(:ident)
+                           field_repeated(:literal)
                            field_decode(:ident)
                          end
                      ) do
@@ -159,7 +166,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                   repeat fields do
                     struct_literal(KiwiSparseStructField,
                       name: field_name,
-                      repeated: kiwi_sparse_repeated!(field_mode),
+                      repeated: field_repeated,
                       decode: field_decode
                     )
                   end
@@ -181,7 +188,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                          repeat do
                            field_id(:literal)
                            field_name(:literal)
-                           field_mode(:ident)
+                           field_repeated(:literal)
                            field_decode(:ident)
                          end
                      ) do
@@ -202,7 +209,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                     struct_literal(KiwiSparseField,
                       id: field_id,
                       name: field_name,
-                      repeated: kiwi_sparse_repeated!(field_mode),
+                      repeated: field_repeated,
                       decode: field_decode
                     )
                   end
@@ -225,7 +232,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                          repeat do
                            field_id(:literal)
                            field_name(:literal)
-                           field_mode(:ident)
+                           field_repeated(:literal)
                            field_decode(:ident)
                            field_skip_repeated(:literal)
                            field_skip_bytes(:literal)
@@ -249,7 +256,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                     struct_literal(KiwiSparseField,
                       id: field_id,
                       name: field_name,
-                      repeated: kiwi_sparse_repeated!(field_mode),
+                      repeated: field_repeated,
                       decode: field_decode
                     )
                   end

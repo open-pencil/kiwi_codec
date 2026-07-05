@@ -116,8 +116,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
     end
   end
 
-  @spec kiwi_skip_descriptor_kind(R.bool(), R.bool(), R.path(:KiwiSkipFn)) ::
-          R.path(:KiwiSkipKind)
+  @spec kiwi_skip_descriptor_kind(R.bool(), R.bool(), kiwi_skip_fn()) :: kiwi_skip_kind()
   defrust kiwi_skip_descriptor_kind(repeated, bytes, skip) do
     if bytes do
       enum_variant(KiwiSkipKind, :bytes)
@@ -192,14 +191,14 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
     :ok
   end
 
-  @spec kiwi_skip_repeated(R.mut_ref(R.path(:Decoder, R.lifetime(:_))), R.path(:KiwiSkipFn)) ::
+  @spec kiwi_skip_repeated(R.mut_ref(R.path(:Decoder, R.lifetime(:_))), kiwi_skip_fn()) ::
           R.nif_result(R.unit())
   defrust kiwi_skip_repeated(decoder, item) do
     unwrap!(decoder.read_repeated(fn decoder -> item(decoder) end))
     :ok
   end
 
-  @spec kiwi_skip_kind(R.mut_ref(R.path(:Decoder, R.lifetime(:_))), R.ref(R.path(:KiwiSkipKind))) ::
+  @spec kiwi_skip_kind(R.mut_ref(R.path(:Decoder, R.lifetime(:_))), R.ref(kiwi_skip_kind())) ::
           R.nif_result(R.unit())
   defrust kiwi_skip_kind(decoder, kind) do
     case kind do
@@ -216,7 +215,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
 
   @spec kiwi_skip_struct_fields(
           R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
-          R.slice(R.path(:KiwiSkipKind))
+          R.slice(kiwi_skip_kind())
         ) :: R.nif_result(R.unit())
   defrust kiwi_skip_struct_fields(decoder, fields) do
     kiwi_skip_struct_fields_remaining(decoder, fields, 0)
@@ -224,7 +223,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
 
   @spec kiwi_skip_struct_fields_remaining(
           R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
-          R.slice(R.path(:KiwiSkipKind)),
+          R.slice(kiwi_skip_kind()),
           R.usize()
         ) :: R.nif_result(R.unit())
   defrust kiwi_skip_struct_fields_remaining(decoder, fields, index) do
@@ -240,7 +239,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
   @spec kiwi_skip_message_fields(
           R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
           R.str(),
-          R.slice(R.path(:KiwiSkipField))
+          R.slice(kiwi_skip_field())
         ) :: R.nif_result(R.unit())
   defrust kiwi_skip_message_fields(decoder, _definition_name, fields) do
     field_id = unwrap!(decoder.read_var_uint())
@@ -251,7 +250,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
       case fields.binary_search_by_key(ref(field_id), fn field -> field.id end) do
         {:ok, index} ->
           field = fields.get(index).unwrap()
-          unwrap!(kiwi_skip_kind(decoder, ref(field.kind)))
+          unwrap!(kiwi_skip_kind(decoder, field.kind))
           kiwi_skip_message_fields(decoder, _definition_name, fields)
 
         {:error, _index} ->

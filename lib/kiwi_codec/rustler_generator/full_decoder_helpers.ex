@@ -298,7 +298,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
     if field_id == 0 do
       make_struct_from_nif_term_arrays(env, keys, ref(values))
     else
-      case fields.binary_search_by_key(ref(field_id), fn field -> field.id end) do
+      case fields.binary_search_by_key(field_id, fn field -> field.id end) do
         {:ok, index} ->
           field = fields.get(index).unwrap()
           value = kiwi_full_field_value(env, decoder, field)
@@ -334,7 +334,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
   defrust kiwi_enum_value(env, decoder, variants) do
     value = decoder.read_var_uint()
 
-    case variants.binary_search_by_key(ref(value), fn variant -> variant.value end) do
+    case variants.binary_search_by_key(value, fn variant -> variant.value end) do
       {:ok, index} ->
         variant = variants.get(index).unwrap()
         {:ok, Atom.from_str(env, variant.name).unwrap().encode(env)}

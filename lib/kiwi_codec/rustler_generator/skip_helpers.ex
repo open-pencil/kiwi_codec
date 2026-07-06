@@ -218,7 +218,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipHelpers do
           if field_id == 0 do
             :ok
           else
-            case fields.binary_search_by_key(ref(field_id), fn field -> field.id end) do
+            case fields.binary_search_by_key(field_id, fn field -> field.id end) do
               {:ok, index} ->
                 field = fields.get(index).unwrap()
                 kiwi_skip_kind(decoder, field.kind)

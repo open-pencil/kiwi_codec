@@ -354,7 +354,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
       defrust kiwi_sparse_enum_value(env, decoder, variants) do
         value = decoder.read_var_uint()
 
-        case variants.binary_search_by_key(ref(value), fn variant -> variant.value end) do
+        case variants.binary_search_by_key(value, fn variant -> variant.value end) do
           {:ok, index} ->
             variant = variants.get(index).unwrap()
             {:ok, Atom.from_str(env, variant.name).unwrap().encode(env)}
@@ -533,7 +533,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
         if field_id == 0 do
           :ok
         else
-          case fields.binary_search_by_key(ref(field_id), fn field -> field.id end) do
+          case fields.binary_search_by_key(field_id, fn field -> field.id end) do
             {:ok, index} ->
               field = fields.get(index).unwrap()
               keys.push(Atom.from_str(env, field.name).unwrap().encode(env))

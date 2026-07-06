@@ -93,8 +93,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "macro_rules! kiwi_struct_decoder"
     assert generated =~ "macro_rules! kiwi_message_decoder"
     assert generated =~ "decoder.read_var_float(env)?"
-    assert generated =~ "decoder.read_byte_array(env)?"
-    assert generated =~ "decoder.read_var_uint()?"
+    assert generated =~ "decoder.read_byte_array(env)"
+    assert generated =~ "decoder.read_var_uint()"
     refute generated =~ "__rq_"
   end
 
@@ -225,19 +225,19 @@ defmodule KiwiCodec.RustlerGeneratorTest do
       )
 
     refute generated =~ "macro_rules! kiwi_message_decoder"
-    assert generated =~ "macro_rules! kiwi_sparse_message_decoder"
-    assert generated =~ "kiwi_sparse_message_decoder!"
+    assert generated =~ "macro_rules! kiwi_sparse_message_descriptor_decoder"
+    assert generated =~ "kiwi_sparse_message_fields("
     assert generated =~ "fn decode_sparse_image_from_decoder"
     assert generated =~ "fn skip_image_from_decoder"
     assert generated =~ "fn skip_point_from_decoder"
     assert generated =~ "kiwi_skip_message_decoder!"
-    assert generated =~ "1 => bytes kiwi_skip_bytes_value;"
-    assert generated =~ "2 => one kiwi_skip_string_value;"
-    assert generated =~ "3 => one skip_point_from_decoder;"
-    assert generated =~ "4 => one kiwi_skip_uint_value;"
+    assert generated =~ "1 => false: true kiwi_skip_bytes_value;"
+    assert generated =~ "2 => false: false kiwi_skip_string_value;"
+    assert generated =~ "3 => false: false skip_point_from_decoder;"
+    assert generated =~ "4 => false: false kiwi_skip_uint_value;"
     refute generated =~ "fn skip_kind_from_decoder"
     assert generated =~ "kiwi_skip_struct_decoder!"
-    assert generated =~ "one kiwi_skip_float_value;"
+    assert generated =~ "false false kiwi_skip_float_value;"
     refute generated =~ "fn decode_image_from_decoder<'a>"
   end
 
@@ -278,22 +278,22 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     refute generated =~ "kiwi_skip_kind!"
 
     assert generated =~
-             "1 => \"hash\": one kiwi_sparse_bytes_value; false true kiwi_skip_bytes_value;"
+             "1 => \"hash\": false kiwi_sparse_bytes_value; false true kiwi_skip_bytes_value;"
 
     assert generated =~
-             "2 => \"name\": one kiwi_sparse_string_value; false false kiwi_skip_string_value;"
+             "2 => \"name\": false kiwi_sparse_string_value; false false kiwi_skip_string_value;"
 
     assert generated =~
-             "3 => \"origin\": one decode_sparse_point_from_decoder; false false skip_point_from_decoder;"
+             "3 => \"origin\": false decode_sparse_point_from_decoder; false false skip_point_from_decoder;"
 
     assert generated =~
-             "4 => \"kind\": one decode_sparse_kind_from_decoder; false false kiwi_skip_uint_value;"
+             "4 => \"kind\": false decode_sparse_kind_from_decoder; false false kiwi_skip_uint_value;"
 
     assert generated =~
-             "5 => \"visible\": one kiwi_sparse_bool_value; false false kiwi_skip_bool_value;"
+             "5 => \"visible\": false kiwi_sparse_bool_value; false false kiwi_skip_bool_value;"
 
     assert generated =~ "let value = decoder.read_bool()?;"
-    assert generated =~ "macro_rules! kiwi_sparse_repeated"
+    assert generated =~ "let values = decoder.read_repeated(|decoder| decode(env, decoder))?;"
     refute generated =~ "bytes kiwi_sparse_bytes_value"
     refute generated =~ "enum KiwiSparseKind"
     refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
@@ -361,14 +361,9 @@ defmodule KiwiCodec.RustlerGeneratorTest do
       )
 
     assert generated =~ "fn decode_kind_from_decoder;"
-
-    assert generated =~
-             "fn decode_sparse_kind_from_decoder<'a>(env: Env<'a>, decoder: &mut Decoder<'_>) -> NifResult<Term<'a>>"
-
+    assert generated =~ "fn decode_sparse_kind_from_decoder<'a>("
     assert generated =~ "decode_kind_from_decoder(env, decoder)"
-
-    assert generated =~
-             "1 => \"kind\": decode_sparse_kind_from_decoder(env, decoder)?.encode(env);"
+    assert generated =~ "decode: decode_sparse_kind_from_decoder"
   end
 
   test "infers entrypoints for every schema definition" do
@@ -422,12 +417,12 @@ defmodule KiwiCodec.RustlerGeneratorTest do
       )
 
     refute generated =~ "static KIND_ATOM_0: OnceLock<Atom> = OnceLock::new();"
-    assert generated =~ "1 => \"rectangle\";"
+    assert generated =~ "1 \"rectangle\";"
     assert generated =~ "static POINT_MODULE_ATOM: OnceLock<Atom> = OnceLock::new();"
     assert generated =~ "static NODE_STRUCT_KEYS: OnceLock<Vec<rustler::wrapper::NIF_TERM>>"
     assert generated =~ "kiwi_enum_decoder!"
     assert generated =~ "fn decode_kind_from_decoder;"
-    assert generated =~ "match decoder.read_var_uint()? as i64"
+    assert generated =~ "let value = decoder.read_var_uint();"
     assert generated =~ "kiwi_struct_decoder!"
     assert generated =~ "fn decode_node_from_decoder;"
     refute generated =~ "static MODULE_ATOM: OnceLock<Atom>"

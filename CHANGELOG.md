@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clarify Rustler generator architecture docs now that compact decoder macros
+  are RustQ-authored rather than raw Rust heredoc escape boundaries.
 - Add optional `decoder_sources` metadata for RustQ-authored skip helpers.
 - Emit Rustler macro prelude helpers only for requested generator features.
 - Add opt-in descriptor-backed sparse message generation with

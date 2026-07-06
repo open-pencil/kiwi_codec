@@ -18,30 +18,32 @@ The generator is organized as a small pipeline:
 3. `KiwiCodec.RustlerGenerator.DecoderMacro` lowers that metadata to compact
    Rust macro invocations such as `kiwi_message_decoder!`,
    `kiwi_sparse_message_decoder!`, and `kiwi_skip_message_decoder!`.
-4. `KiwiCodec.RustlerGenerator.Splice` provides the shared Rust macro
-   definitions and helper functions consumed by those invocations. When callers
-   opt into `decoder_sources:` for skip generation, shared primitive skip helpers
-   are authored by `KiwiCodec.RustlerGenerator.SkipHelpers` with RustQ `defrust`
-   and source-backed method metadata.
+4. `KiwiCodec.RustlerGenerator.Splice` selects the shared Rust macro definitions
+   and helper functions consumed by those invocations. The full, sparse, and
+   skip helper modules author those macros with RustQ `defrustmacro`, `defrust`,
+   type metadata, and source-backed method metadata where decoder sources are
+   available.
 5. `KiwiCodec.RustlerGenerator.Entrypoint` emits Rustler NIF entrypoints through
    RustQ `defrust`, where the wrapper control flow is small and readable.
 
 This split keeps schema logic in Elixir while avoiding thousands of repeated
 expanded Rust function bodies.
 
-## Compact macro boundary
+## Compact RustQ macro boundary
 
-The macros in `Splice` are an intentional escape boundary. They are not a
-string DSL to grow casually; they are shared Rust implementations for highly
-repetitive decoder shapes.
+The macros selected by `Splice` are a compact RustQ-authored boundary. They are
+shared implementations for highly repetitive decoder shapes, but they should be
+authored through `defrustmacro`, `defrust`, type metadata, and RustQ AST helpers
+rather than through raw Rust heredocs or ad hoc token strings.
 
 When changing full, sparse, or skip decoder generation:
 
 - Prefer semantic Elixir metadata and helpers first.
 - Keep compact schema-specific output as macro invocations when the expanded
   body would be repetitive.
-- Use RustQ AST for local expression/arm/function generation where it remains
-  compact, such as skip field arms used by downstream custom templates.
+- Use RustQ AST or Rusty-Elixir helpers for local expression/arm/function
+  generation where it remains compact, such as skip field arms used by
+  downstream custom templates.
 - Use `decoder_sources:` to expose the downstream Rust `Decoder` implementation
   before adding `unwrap!`, verbose propagation `case` expressions, or duplicate
   method metadata for skip helpers.

@@ -2,9 +2,10 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   @moduledoc """
   Static RustQ splice fragments required by generated Rustler decoders.
 
-  The Rust source below is an intentional escape boundary: generated schema code
-  targets these compact Rust macros so high-level Elixir generators can stay
-  semantic without expanding large repetitive Rust bodies.
+  Generated schema code targets compact Rust macros so high-level Elixir
+  generators can stay semantic without expanding large repetitive Rust bodies.
+  The shared macros and helper functions are authored through RustQ `defrust`,
+  `defrustmacro`, and type metadata in the helper modules selected here.
   """
 
   alias KiwiCodec.RustlerGenerator.FullDecoderHelpers

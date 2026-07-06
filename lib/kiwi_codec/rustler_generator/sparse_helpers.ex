@@ -71,7 +71,9 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
 
   defp quoted_module(decoder_sources) do
     quote do
-      use RustQ.Meta, rust_sources: unquote(decoder_sources)
+      use RustQ.Meta,
+        rust_sources: unquote(decoder_sources),
+        callable_modules: [KiwiCodec.RustlerGenerator.SkipValueHelpers]
 
       alias RustQ.Type, as: R
 
@@ -262,21 +264,19 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
             kiwi_skip_message_fields(
               decoder,
               definition_name,
-              ref(
-                array([
-                  repeat fields do
-                    struct_literal(KiwiSkipField,
-                      id: field_id,
-                      kind:
-                        kiwi_skip_descriptor_kind(
-                          field_skip_repeated,
-                          field_skip_bytes,
-                          field_skip
-                        )
-                    )
-                  end
-                ])
-              )
+              array([
+                repeat fields do
+                  struct_literal(KiwiSkipField,
+                    id: field_id,
+                    kind:
+                      kiwi_skip_descriptor_kind(
+                        field_skip_repeated,
+                        field_skip_bytes,
+                        field_skip
+                      )
+                  )
+                end
+              ])
             )
           end
         end

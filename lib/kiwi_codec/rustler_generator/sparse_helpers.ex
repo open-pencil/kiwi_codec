@@ -459,14 +459,17 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
       @spec kiwi_skip_descriptor_kind(R.bool(), R.bool(), R.path(:KiwiSkipFn)) ::
               R.path(:KiwiSkipKind)
       defrust kiwi_skip_descriptor_kind(repeated, bytes, skip) do
-        if bytes do
-          enum_variant(KiwiSkipKind, :bytes)
-        else
+        non_bytes_kind =
           if repeated do
             enum_variant(KiwiSkipKind, :repeated, skip)
           else
             enum_variant(KiwiSkipKind, :one, skip)
           end
+
+        if bytes do
+          enum_variant(KiwiSkipKind, :bytes)
+        else
+          non_bytes_kind
         end
       end
     end

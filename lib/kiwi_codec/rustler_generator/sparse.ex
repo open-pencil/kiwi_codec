@@ -8,6 +8,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
 
   alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.RustlerGenerator.RustExpr
+  alias KiwiCodec.RustlerGenerator.SkipDescriptor
   alias KiwiCodec.RustlerGenerator.SparseHelpers
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
@@ -33,35 +34,11 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          module_prefix,
          definition_map,
          _full?,
-         :match,
+         mode,
          _message_mode
-       ) do
-    SparseHelpers.macro_call(:kiwi_sparse_struct_decoder,
-      fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
-      env: :env,
-      decoder: :decoder,
-      module: module_name(module_prefix, name),
-      capacity: length(fields) + 1,
-      fields: Enum.map(fields, &sparse_struct_row(&1, definition_map))
-    )
-  end
-
-  defp definition(
-         %Struct{name: name, fields: fields},
-         module_prefix,
-         definition_map,
-         _full?,
-         :descriptor,
-         _message_mode
-       ) do
-    SparseHelpers.macro_call(:kiwi_sparse_struct_decoder,
-      fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
-      env: :env,
-      decoder: :decoder,
-      module: module_name(module_prefix, name),
-      capacity: length(fields) + 1,
-      fields: Enum.map(fields, &sparse_struct_row(&1, definition_map))
-    )
+       )
+       when mode in [:match, :descriptor] do
+    sparse_struct_decoder(name, module_prefix, fields, definition_map)
   end
 
   defp definition(
@@ -154,6 +131,17 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
         fields
         |> Enum.sort_by(& &1.id)
         |> Enum.map(&sparse_message_descriptor_row(&1, definition_map))
+    )
+  end
+
+  defp sparse_struct_decoder(name, module_prefix, fields, definition_map) do
+    SparseHelpers.macro_call(:kiwi_sparse_struct_decoder,
+      fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
+      env: :env,
+      decoder: :decoder,
+      module: module_name(module_prefix, name),
+      capacity: length(fields) + 1,
+      fields: Enum.map(fields, &sparse_struct_row(&1, definition_map))
     )
   end
 
@@ -321,21 +309,8 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
     {true, false, skip}
   end
 
-  defp skip_descriptor(%{type: type}, definition_map) do
-    skip =
-      cond do
-        KiwiCodec.PrimitiveType.name?(type) ->
-          RustQ.Atom.identifier!("kiwi_skip_#{RustExpr.ident(type)}_value")
-
-        match?(%SchemaEnum{}, Map.get(definition_map, type)) ->
-          :kiwi_skip_uint_value
-
-        Map.has_key?(definition_map, type) ->
-          RustQ.Atom.identifier!("skip_#{RustExpr.ident(type)}_from_decoder")
-      end
-
-    {false, false, skip}
-  end
+  defp skip_descriptor(%{type: type}, definition_map),
+    do: {false, false, SkipDescriptor.scalar_function(type, definition_map)}
 
   defp sparse_function_name(name),
     do: RustQ.Atom.identifier!("decode_sparse_#{RustExpr.ident(name)}_from_decoder")

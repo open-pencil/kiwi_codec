@@ -8,6 +8,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   """
 
   alias KiwiCodec.RustlerGenerator.RustExpr
+  alias KiwiCodec.RustlerGenerator.SkipDescriptor
   alias KiwiCodec.RustlerGenerator.SkipValueHelpers
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
@@ -130,16 +131,6 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     A.try(A.call(function, [:decoder]))
   end
 
-  defp scalar_skip_function(type, definition_map) do
-    cond do
-      KiwiCodec.PrimitiveType.name?(type) ->
-        RustQ.Atom.identifier!("kiwi_skip_#{RustExpr.ident(type)}_value")
-
-      match?(%SchemaEnum{}, Map.get(definition_map, type)) ->
-        :kiwi_skip_uint_value
-
-      Map.has_key?(definition_map, type) ->
-        RustQ.Atom.identifier!("skip_#{RustExpr.ident(type)}_from_decoder")
-    end
-  end
+  defp scalar_skip_function(type, definition_map),
+    do: SkipDescriptor.scalar_function(type, definition_map)
 end

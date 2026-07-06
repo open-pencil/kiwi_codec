@@ -313,7 +313,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
             ) :: R.nif_result(term())
       defrust unquote(function)(env, decoder) do
-        value = unwrap!(decoder.unquote(read_method)())
+        value = decoder.unquote(read_method)()
         {:ok, value.encode(env)}
       end
     end
@@ -352,7 +352,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               R.slice(R.path(:KiwiSparseEnumVariant))
             ) :: R.nif_result(term())
       defrust kiwi_sparse_enum_value(env, decoder, variants) do
-        value = unwrap!(decoder.read_var_uint())
+        value = decoder.read_var_uint()
 
         case variants.binary_search_by_key(ref(value), fn variant -> variant.value end) do
           {:ok, index} ->
@@ -377,7 +377,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
         decode = field.decode
 
         if field.repeated do
-          values = unwrap!(decoder.read_repeated(fn decoder -> decode(env, decoder) end))
+          values = decoder.read_repeated(fn decoder -> decode(env, decoder) end)
           {:ok, values.encode(env)}
         else
           decode(env, decoder)
@@ -397,7 +397,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
         decode = field.decode
 
         if field.repeated do
-          value = unwrap!(decoder.read_repeated(fn decoder -> decode(env, decoder) end))
+          value = decoder.read_repeated(fn decoder -> decode(env, decoder) end)
           {:ok, value.encode(env)}
         else
           decode(env, decoder)
@@ -454,7 +454,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
           field = fields.get(index).unwrap()
           keys.push(Atom.from_str(env, field.name).unwrap().encode(env))
 
-          values.push(unwrap!(kiwi_sparse_struct_field_value(env, decoder, field)))
+          values.push(kiwi_sparse_struct_field_value(env, decoder, field))
 
           kiwi_sparse_struct_fields_remaining(env, decoder, fields, index + 1, keys, values)
         end
@@ -528,7 +528,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               R.mut_ref(R.vec(term()))
             ) :: R.nif_result(R.unit())
       defrust kiwi_sparse_message_fields_remaining(env, decoder, fields, keys, values) do
-        field_id = unwrap!(decoder.read_var_uint())
+        field_id = decoder.read_var_uint()
 
         if field_id == 0 do
           :ok
@@ -537,7 +537,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
             {:ok, index} ->
               field = fields.get(index).unwrap()
               keys.push(Atom.from_str(env, field.name).unwrap().encode(env))
-              values.push(unwrap!(kiwi_sparse_field_value(env, decoder, field)))
+              values.push(kiwi_sparse_field_value(env, decoder, field))
 
               kiwi_sparse_message_fields_remaining(env, decoder, fields, keys, values)
 

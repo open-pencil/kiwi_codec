@@ -210,7 +210,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_bool_value(env, decoder) do
-    value = unwrap!(decoder.read_bool())
+    value = decoder.read_bool()
     {:ok, value.encode(env)}
   end
 
@@ -219,7 +219,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_byte_value(env, decoder) do
-    value = unwrap!(decoder.read_byte())
+    value = decoder.read_byte()
     {:ok, value.encode(env)}
   end
 
@@ -228,7 +228,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_float_value(env, decoder) do
-    value = unwrap!(decoder.read_var_float_value())
+    value = decoder.read_var_float_value()
     {:ok, value.encode(env)}
   end
 
@@ -237,7 +237,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_int_value(env, decoder) do
-    value = unwrap!(decoder.read_var_int())
+    value = decoder.read_var_int()
     {:ok, value.encode(env)}
   end
 
@@ -246,7 +246,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_int64_value(env, decoder) do
-    value = unwrap!(decoder.read_var_int64())
+    value = decoder.read_var_int64()
     {:ok, value.encode(env)}
   end
 
@@ -255,7 +255,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_string_value(env, decoder) do
-    value = unwrap!(decoder.read_string())
+    value = decoder.read_string()
     {:ok, value.encode(env)}
   end
 
@@ -264,7 +264,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_uint_value(env, decoder) do
-    value = unwrap!(decoder.read_var_uint())
+    value = decoder.read_var_uint()
     {:ok, value.encode(env)}
   end
 
@@ -273,7 +273,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_uint64_value(env, decoder) do
-    value = unwrap!(decoder.read_var_uint64())
+    value = decoder.read_var_uint64()
     {:ok, value.encode(env)}
   end
 
@@ -293,7 +293,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.slice(R.path(:KiwiFullField))
         ) :: R.nif_result(term())
   defrust kiwi_message_fields(env, decoder, keys, values, fields) do
-    field_id = unwrap!(decoder.read_var_uint())
+    field_id = decoder.read_var_uint()
 
     if field_id == 0 do
       make_struct_from_nif_term_arrays(env, keys, ref(values))
@@ -301,7 +301,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
       case fields.binary_search_by_key(ref(field_id), fn field -> field.id end) do
         {:ok, index} ->
           field = fields.get(index).unwrap()
-          value = unwrap!(kiwi_full_field_value(env, decoder, field))
+          value = kiwi_full_field_value(env, decoder, field)
           next_values = values
           assign!(index(next_values, field.index), value.as_c_arg())
           kiwi_message_fields(env, decoder, keys, next_values, fields)
@@ -319,7 +319,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
         ) :: R.nif_result(term())
   defrust kiwi_full_field_value(env, decoder, field) do
     if field.repeated do
-      values = unwrap!(decoder.read_repeated(fn decoder -> field.decode(env, decoder) end))
+      values = decoder.read_repeated(fn decoder -> field.decode(env, decoder) end)
       {:ok, values.encode(env)}
     else
       field.decode(env, decoder)
@@ -332,7 +332,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           R.slice(R.path(:KiwiEnumVariant))
         ) :: R.nif_result(term())
   defrust kiwi_enum_value(env, decoder, variants) do
-    value = unwrap!(decoder.read_var_uint())
+    value = decoder.read_var_uint()
 
     case variants.binary_search_by_key(ref(value), fn variant -> variant.value end) do
       {:ok, index} ->

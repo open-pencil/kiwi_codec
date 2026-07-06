@@ -428,8 +428,8 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
           decoder,
           fields,
           0,
-          mut_ref(keys),
-          mut_ref(values)
+          keys,
+          values
         )
 
         Term.map_from_term_arrays(env, ref(keys), ref(values))
@@ -509,8 +509,8 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
           env,
           decoder,
           fields,
-          mut_ref(keys),
-          mut_ref(values)
+          keys,
+          values
         )
 
         Term.map_from_term_arrays(env, ref(keys), ref(values))

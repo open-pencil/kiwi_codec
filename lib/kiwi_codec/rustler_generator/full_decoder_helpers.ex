@@ -79,26 +79,22 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
         cached_struct_keys(
           env,
           ref(keys_static),
-          ref(
-            array([
-              repeat keys do
-                key
-              end
-            ])
-          )
+          array([
+            repeat keys do
+              key
+            end
+          ])
         )
 
       make_struct_from_nif_term_arrays(
         env,
         keys,
-        ref(
-          array([
-            module_atom.as_c_arg(),
-            repeat fields do
-              field_expr.encode(env).as_c_arg()
-            end
-          ])
-        )
+        array([
+          module_atom.as_c_arg(),
+          repeat fields do
+            field_expr.encode(env).as_c_arg()
+          end
+        ])
       )
     end
   end
@@ -134,13 +130,11 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
         cached_struct_keys(
           env,
           ref(keys_static),
-          ref(
-            array([
-              repeat keys do
-                key
-              end
-            ])
-          )
+          array([
+            repeat keys do
+              key
+            end
+          ])
         )
 
       values = default_struct_values(env, module_atom, keys.len() - 1)
@@ -159,18 +153,16 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
         decoder,
         struct_keys,
         struct_values,
-        ref(
-          array([
-            repeat fields do
-              struct_literal(KiwiFullField,
-                id: field_id,
-                index: field_index,
-                repeated: field_repeated,
-                decode: field_decode
-              )
-            end
-          ])
-        )
+        array([
+          repeat fields do
+            struct_literal(KiwiFullField,
+              id: field_id,
+              index: field_index,
+              repeated: field_repeated,
+              decode: field_decode
+            )
+          end
+        ])
       )
     end
   end
@@ -191,16 +183,14 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
       kiwi_enum_value(
         env,
         decoder,
-        ref(
-          array([
-            repeat variants do
-              struct_literal(KiwiEnumVariant,
-                value: variant_value,
-                name: variant_name
-              )
-            end
-          ])
-        )
+        array([
+          repeat variants do
+            struct_literal(KiwiEnumVariant,
+              value: variant_value,
+              name: variant_name
+            )
+          end
+        ])
       )
     end
   end

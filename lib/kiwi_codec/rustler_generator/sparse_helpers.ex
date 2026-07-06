@@ -123,16 +123,14 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
             kiwi_sparse_enum_value(
               env,
               decoder,
-              ref(
-                array([
-                  repeat variants do
-                    struct_literal(KiwiSparseEnumVariant,
-                      value: variant_value,
-                      name: variant_name
-                    )
-                  end
-                ])
-              )
+              array([
+                repeat variants do
+                  struct_literal(KiwiSparseEnumVariant,
+                    value: variant_value,
+                    name: variant_name
+                  )
+                end
+              ])
             )
           end
         end
@@ -161,17 +159,15 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               decoder,
               module_name,
               capacity,
-              ref(
-                array([
-                  repeat fields do
-                    struct_literal(KiwiSparseStructField,
-                      name: field_name,
-                      repeated: field_repeated,
-                      decode: field_decode
-                    )
-                  end
-                ])
-              )
+              array([
+                repeat fields do
+                  struct_literal(KiwiSparseStructField,
+                    name: field_name,
+                    repeated: field_repeated,
+                    decode: field_decode
+                  )
+                end
+              ])
             )
           end
         end
@@ -203,18 +199,16 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               module_name,
               definition_name,
               capacity,
-              ref(
-                array([
-                  repeat fields do
-                    struct_literal(KiwiSparseField,
-                      id: field_id,
-                      name: field_name,
-                      repeated: field_repeated,
-                      decode: field_decode
-                    )
-                  end
-                ])
-              )
+              array([
+                repeat fields do
+                  struct_literal(KiwiSparseField,
+                    id: field_id,
+                    name: field_name,
+                    repeated: field_repeated,
+                    decode: field_decode
+                  )
+                end
+              ])
             )
           end
         end
@@ -250,18 +244,16 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               module_name,
               definition_name,
               capacity,
-              ref(
-                array([
-                  repeat fields do
-                    struct_literal(KiwiSparseField,
-                      id: field_id,
-                      name: field_name,
-                      repeated: field_repeated,
-                      decode: field_decode
-                    )
-                  end
-                ])
-              )
+              array([
+                repeat fields do
+                  struct_literal(KiwiSparseField,
+                    id: field_id,
+                    name: field_name,
+                    repeated: field_repeated,
+                    decode: field_decode
+                  )
+                end
+              ])
             )
           end
 

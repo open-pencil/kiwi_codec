@@ -110,17 +110,15 @@ defmodule KiwiCodec.RustlerGenerator.SkipHelpers do
           defrust name(decoder) do
             kiwi_skip_struct_fields(
               decoder,
-              ref(
-                array([
-                  repeat fields do
-                    struct_literal(KiwiSkipStructField,
-                      repeated: field_repeated,
-                      bytes: field_bytes,
-                      skip: field_skip
-                    )
-                  end
-                ])
-              ),
+              array([
+                repeat fields do
+                  struct_literal(KiwiSkipStructField,
+                    repeated: field_repeated,
+                    bytes: field_bytes,
+                    skip: field_skip
+                  )
+                end
+              ]),
               0
             )
           end

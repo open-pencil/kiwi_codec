@@ -74,13 +74,11 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
     defrust name(decoder) do
       kiwi_skip_struct_fields(
         decoder,
-        ref(
-          array([
-            repeat fields do
-              kiwi_skip_descriptor_kind(field_repeated, field_bytes, field_skip)
-            end
-          ])
-        )
+        array([
+          repeat fields do
+            kiwi_skip_descriptor_kind(field_repeated, field_bytes, field_skip)
+          end
+        ])
       )
     end
   end
@@ -102,16 +100,14 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
       kiwi_skip_message_fields(
         decoder,
         definition_name,
-        ref(
-          array([
-            repeat fields do
-              struct_literal(KiwiSkipField,
-                id: field_id,
-                kind: kiwi_skip_descriptor_kind(field_repeated, field_bytes, field_skip)
-              )
-            end
-          ])
-        )
+        array([
+          repeat fields do
+            struct_literal(KiwiSkipField,
+              id: field_id,
+              kind: kiwi_skip_descriptor_kind(field_repeated, field_bytes, field_skip)
+            )
+          end
+        ])
       )
     end
   end

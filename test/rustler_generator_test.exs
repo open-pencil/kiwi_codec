@@ -86,7 +86,7 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "fn decode_kind_from_decoder"
     assert generated =~ "fn decode_node"
     assert generated =~ "fn decode_image"
-    assert generated =~ "match decode_node_from_decoder(env, &mut decoder)"
+    assert generated =~ "match decode_node_from_decoder(env, decoder)"
     refute generated =~ "let term = decode_node(env, &mut decoder)?"
     assert generated =~ ~s("Elixir.Example.Schema.Node")
     assert generated =~ ~s("Elixir.Example.Schema.Image")

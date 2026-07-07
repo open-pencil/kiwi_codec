@@ -69,7 +69,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
       defrust unquote(nif_name)(env, bytes) do
         decoder = Decoder.new(bytes.as_slice())
 
-        case unquote(decoder_name)(env, mut_ref(decoder)) do
+        case unquote(decoder_name)(env, decoder) do
           {:ok, term} ->
             case decoder.finish() do
               {:ok, _done} -> {:ok, term}

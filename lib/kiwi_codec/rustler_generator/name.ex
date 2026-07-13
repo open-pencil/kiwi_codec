@@ -3,12 +3,14 @@ defmodule KiwiCodec.RustlerGenerator.Name do
   Naming helpers for Rustler decoder code generated from Kiwi schemas.
   """
 
+  alias RustQ.Rust.Identifier
+
   @spec decoder_function(String.t()) :: atom()
   def decoder_function(name) do
     name
     |> decoder_base()
     |> Kernel.<>("_from_decoder")
-    |> RustQ.Atom.identifier!()
+    |> Identifier.atom!()
   end
 
   @spec message_fields_function(String.t()) :: atom()
@@ -16,7 +18,7 @@ defmodule KiwiCodec.RustlerGenerator.Name do
     name
     |> decoder_base()
     |> Kernel.<>("_fields_from_decoder")
-    |> RustQ.Atom.identifier!()
+    |> Identifier.atom!()
   end
 
   @spec module_atom_static(String.t()) :: atom()
@@ -48,6 +50,6 @@ defmodule KiwiCodec.RustlerGenerator.Name do
     |> rust_identifier()
     |> String.upcase()
     |> Kernel.<>("_#{suffix}")
-    |> RustQ.Atom.identifier!()
+    |> Identifier.atom!()
   end
 end

@@ -13,6 +13,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   alias KiwiCodec.RustlerGenerator.RustExpr
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
+  alias RustQ.Rust.Identifier
 
   @spec enum_decoder(SchemaEnum.t()) :: RustQ.Rust.Fragment.t()
   def enum_decoder(%SchemaEnum{} = definition) do
@@ -121,7 +122,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   defp full_decode_function(%{type: type}, definition_map) do
     case RustExpr.primitive(type) do
       nil -> Name.decoder_function(Map.fetch!(definition_map, type).name)
-      _expr -> RustQ.Atom.identifier!("kiwi_full_#{RustExpr.ident(type)}_value")
+      _expr -> Identifier.atom!("kiwi_full_#{RustExpr.ident(type)}_value")
     end
   end
 end

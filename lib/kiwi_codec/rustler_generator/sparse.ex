@@ -13,6 +13,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Meta.AST, as: MetaAST
+  alias RustQ.Rust.Identifier
 
   @spec fragments([KiwiCodec.Schema.definition()], String.t(), map(), keyword()) :: [
           RustQ.Rust.Fragment.t()
@@ -148,13 +149,13 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   defp sparse_enum_passthrough_function(name) do
     function = sparse_function_name(name)
     module = sparse_enum_passthrough_module!(name)
-    module |> MetaAST.items([function]) |> List.first()
+    module |> MetaAST.functions!([function]) |> List.first()
   end
 
   defp sparse_message_function(name, module_name, fields, definition_map) do
     function = sparse_function_name(name)
     module = sparse_message_module!(name, module_name, fields, definition_map)
-    module |> MetaAST.items([function]) |> List.first()
+    module |> MetaAST.functions!([function]) |> List.first()
   end
 
   defp sparse_enum_passthrough_module!(name) do
@@ -268,7 +269,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
       field
       |> descriptor_scalar_function(definition_map)
       |> IO.iodata_to_binary()
-      |> RustQ.Atom.identifier!()
+      |> Identifier.atom!()
 
   defp sparse_struct_row(field, definition_map) do
     [
@@ -313,7 +314,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
     do: {false, false, SkipDescriptor.scalar_function(type, definition_map)}
 
   defp sparse_function_name(name),
-    do: RustQ.Atom.identifier!("decode_sparse_#{RustExpr.ident(name)}_from_decoder")
+    do: Identifier.atom!("decode_sparse_#{RustExpr.ident(name)}_from_decoder")
 
   defp descriptor_scalar_function(%{type: type}, definition_map) do
     cond do

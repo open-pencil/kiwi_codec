@@ -39,13 +39,11 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
   end
 
   defp atom_static(name) do
-    Rust.ast_item(A.static(name, "OnceLock<Atom>", A.path_call([:OnceLock, :new])))
+    A.static(name, "OnceLock<Atom>", A.path_call([:OnceLock, :new]))
   end
 
   defp keys_static(name) do
-    Rust.ast_item(
-      A.static(name, "OnceLock<Vec<rustler::wrapper::NIF_TERM>>", A.path_call([:OnceLock, :new]))
-    )
+    A.static(name, "OnceLock<Vec<rustler::wrapper::NIF_TERM>>", A.path_call([:OnceLock, :new]))
   end
 
   defp field_expr(%{array?: true, type: "byte"}, _definition_map) do

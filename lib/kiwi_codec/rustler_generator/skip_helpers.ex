@@ -34,8 +34,8 @@ defmodule KiwiCodec.RustlerGenerator.SkipHelpers do
     module = generated_module!(decoder_sources)
 
     module.__rustq_type_items__() ++
-      MetaAST.macro_items(module, @macros) ++
-      MetaAST.items(module, @functions)
+      MetaAST.macro_items!(module, @macros) ++
+      MetaAST.functions!(module, @functions)
   end
 
   defp generated_module!(decoder_sources) do

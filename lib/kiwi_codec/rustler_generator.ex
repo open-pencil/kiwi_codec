@@ -190,6 +190,5 @@ defmodule KiwiCodec.RustlerGenerator do
       A.use({[:std, :sync], [:OnceLock]}),
       A.use(decoder)
     ]
-    |> Rust.ast_items()
   end
 end

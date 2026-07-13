@@ -12,15 +12,17 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   alias KiwiCodec.RustlerGenerator.SkipHelpers
   alias KiwiCodec.RustlerGenerator.SkipValueHelpers
   alias KiwiCodec.RustlerGenerator.SparseHelpers
+  alias RustQ.Rust.AST
+  alias RustQ.Rustler.{Atom, Term}
 
-  @spec rustler_helpers(keyword()) :: [RustQ.Rust.Fragment.t()]
+  @spec rustler_helpers(keyword()) :: [AST.item()]
   def rustler_helpers(opts \\ []) do
     features = Keyword.get(opts, :features, [:full])
     decoder_sources = helper_decoder_sources(opts, features)
 
     decoder_macros(features, decoder_sources, opts) ++
-      RustQ.Rustler.cached_atoms([]) ++
-      RustQ.Rustler.term_helpers(
+      Atom.cached([]) ++
+      Term.helpers(
         include: [
           :cached_struct_keys,
           :default_struct_values,

@@ -40,7 +40,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
   def macro_call(name, args) do
     []
     |> generated_module!()
-    |> MetaAST.macro_call(name, args)
+    |> MetaAST.macro_call!(name, args)
   end
 
   @spec fragments([Path.t()] | Path.t(), keyword()) :: [RustQ.Rust.Fragment.t()]
@@ -49,7 +49,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     macros = Keyword.get(opts, :macros, @macros)
 
     module.__rustq_type_items__() ++
-      MetaAST.macro_items(module, macros) ++ MetaAST.items(module, @functions)
+      MetaAST.macro_items!(module, macros) ++ MetaAST.functions!(module, @functions)
   end
 
   defp generated_module!(decoder_sources) do

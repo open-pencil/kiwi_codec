@@ -47,17 +47,17 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
 
   @spec fragments() :: [RustQ.Rust.Fragment.t()]
   def fragments do
-    __MODULE__.__rustq_type_items__() ++ MetaAST.items(__MODULE__, @functions)
+    __MODULE__.__rustq_type_items__() ++ MetaAST.functions!(__MODULE__, @functions)
   end
 
   @spec macro_fragments([atom()]) :: [RustQ.Rust.Fragment.t()]
   def macro_fragments(names \\ @macros) do
-    MetaAST.macro_items(__MODULE__, names)
+    MetaAST.macro_items!(__MODULE__, names)
   end
 
   @spec dispatch_fragments() :: [RustQ.Rust.Fragment.t()]
   def dispatch_fragments do
-    MetaAST.items(__MODULE__, @dispatch_functions)
+    MetaAST.functions!(__MODULE__, @dispatch_functions)
   end
 
   defrustmacro kiwi_skip_struct_decoder(

@@ -48,11 +48,11 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
   @spec fragments([atom()]) :: [RustQ.Rust.Fragment.t()]
   def fragments(macros \\ @macros) do
     __MODULE__.__rustq_type_items__() ++
-      MetaAST.macro_items(__MODULE__, macros) ++ MetaAST.items(__MODULE__, @functions)
+      MetaAST.macro_items!(__MODULE__, macros) ++ MetaAST.functions!(__MODULE__, @functions)
   end
 
   @spec macro_call(atom(), keyword()) :: RustQ.Rust.Fragment.t()
-  def macro_call(name, args), do: MetaAST.macro_call(__MODULE__, name, args)
+  def macro_call(name, args), do: MetaAST.macro_call!(__MODULE__, name, args)
 
   defrustmacro kiwi_struct_decoder(
                  fn: name(:ident),

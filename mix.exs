@@ -47,17 +47,17 @@ defmodule KiwiCodec.MixProject do
     [
       rustq_dep(),
       {:varint, "~> 1.6"},
+      {:jason, "~> 1.4", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
-      {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end
 
   defp rustq_dep do
-    {:rustq, "~> 0.9.3", runtime: false}
+    {:rustq, "~> 0.10.0", runtime: false}
   end
 
   defp package do

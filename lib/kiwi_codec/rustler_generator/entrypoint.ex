@@ -5,6 +5,7 @@ defmodule KiwiCodec.RustlerGenerator.Entrypoint do
 
   alias KiwiCodec.RustlerGenerator.Name
   alias RustQ.Meta.AST, as: MetaAST
+  alias RustQ.Rust.Identifier
 
   @type entrypoint :: {atom() | String.t(), String.t()}
 
@@ -13,11 +14,11 @@ defmodule KiwiCodec.RustlerGenerator.Entrypoint do
 
   defp item({nif_name, definition_name}) do
     module = generated_module!(nif_name, definition_name)
-    MetaAST.item(module, RustQ.Atom.identifier!(to_string(nif_name)))
+    MetaAST.function!(module, Identifier.atom!(to_string(nif_name)))
   end
 
   defp generated_module!(nif_name, definition_name) do
-    nif_name = RustQ.Atom.identifier!(to_string(nif_name))
+    nif_name = Identifier.atom!(to_string(nif_name))
     decoder_name = Name.decoder_function(definition_name)
 
     module =

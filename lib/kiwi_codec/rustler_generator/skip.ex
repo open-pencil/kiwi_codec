@@ -13,10 +13,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Meta.AST, as: MetaAST
+  alias RustQ.Rust
   alias RustQ.Rust.AST
   alias RustQ.Rust.AST.Builder, as: A
   alias RustQ.Rust.AST.PatternBuilder, as: P
-  alias RustQ.Rust.AST.Render
 
   defmodule Kind do
     @moduledoc """
@@ -41,7 +41,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   def field_expr(field, definition_map) do
     field
     |> skip_call(definition_map)
-    |> Render.render_expr()
+    |> Rust.render()
     |> IO.iodata_to_binary()
   end
 

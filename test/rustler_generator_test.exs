@@ -84,7 +84,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "fn decode_node_from_decoder"
     assert generated =~ "fn decode_point_from_decoder"
     assert generated =~ "fn decode_kind_from_decoder"
-    assert generated =~ "fn decode_node"
+    assert generated =~ ~s|#[rustler::nif(schedule = "DirtyCpu")]|
+    assert generated =~ "fn decode_node<'a>(env: Env<'a>, bytes: Binary<'a>)"
     assert generated =~ "fn decode_image"
     assert generated =~ "match decode_node_from_decoder(env, decoder)"
     refute generated =~ "let term = decode_node(env, &mut decoder)?"

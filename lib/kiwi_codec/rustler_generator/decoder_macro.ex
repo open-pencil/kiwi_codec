@@ -2,7 +2,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   @moduledoc """
   Rusty-Elixir macro support for generated Rustler decoders.
 
-  Entrypoint wrappers are authored with `defrust`. Full schema decoders use the
+  Entrypoint wrappers are authored with `defnif`. Full schema decoders use the
   same semantic boundary, but intentionally lower to compact Rust macro
   invocations instead of expanded Rust function bodies. This keeps generator
   authoring in Elixir/RustQ while preserving small generated source.
@@ -65,12 +65,11 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
 
     quote do
       @nif schedule: "DirtyCpu"
-      @spec unquote(nif_name)(R.path(:Env, R.lifetime(:a)), R.path(:Binary, R.lifetime(:a))) ::
-              R.nif_result(R.path(:Term, R.lifetime(:a)))
-      defrust unquote(nif_name)(env, bytes) do
+      @spec unquote(nif_name)(binary()) :: R.nif_result(term())
+      defnif unquote(nif_name)(bytes) do
         decoder = Decoder.new(bytes.as_slice())
 
-        case unquote(decoder_name)(env, decoder) do
+        case unquote(decoder_name)(nif_env(), decoder) do
           {:ok, term} ->
             case decoder.finish() do
               {:ok, _done} -> {:ok, term}

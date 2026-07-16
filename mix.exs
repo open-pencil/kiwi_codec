@@ -57,7 +57,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 0.11.0", runtime: false}
+    {:rustq, github: "dannote/rustq", ref: "aa07813", runtime: false}
   end
 
   defp package do

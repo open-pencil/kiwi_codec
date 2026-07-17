@@ -170,6 +170,10 @@ parsed = KiwiCodec.Container.parse(binary)
 elixir bench/codec_bench.exs
 ```
 
+The Benchee suite compares static and runtime-interpreted codecs for both a
+small nested message and 256-field sparse/dense messages. It reports throughput,
+latency percentiles, and BEAM allocations.
+
 ## Development
 
 ```sh

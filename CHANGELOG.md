@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Replace the timer-loop codec benchmark with Benchee coverage for small and
+  256-field sparse/dense static and interpreted codecs, including allocation
+  measurements.
 - Clarify Rustler generator architecture docs now that compact decoder macros
   are RustQ-authored rather than raw Rust heredoc escape boundaries.
 - Deduplicate Rustler generator skip descriptor selection and remove exact clone

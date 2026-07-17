@@ -30,9 +30,11 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
     :kiwi_full_field_value
   ]
 
+  @typedoc false
   @type kiwi_full_decode_fn ::
           R.raw(:"for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>")
 
+  @typedoc false
   @type kiwi_full_field :: %{
           required(:id) => R.u32(),
           required(:index) => R.usize(),
@@ -40,6 +42,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           required(:decode) => kiwi_full_decode_fn()
         }
 
+  @typedoc false
   @type kiwi_enum_variant :: %{
           required(:value) => R.u32(),
           required(:name) => R.str()

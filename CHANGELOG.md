@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+## v0.3.0 - 2026-07-17
+
 - Restore the required slice borrow for match-backed sparse field tables when
   decoder source metadata is enabled.
+- Hide internal Rust-only helper types from ExDoc type-reference rendering.
 - Add reusable prepared runtime schemas with indexed definition, message-field,
   and enum lookup for repeated `SchemaInterpreter` calls.
 - Replace the timer-loop codec benchmark with Benchee coverage for small and

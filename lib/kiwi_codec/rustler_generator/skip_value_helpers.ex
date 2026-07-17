@@ -35,11 +35,14 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
     :kiwi_skip_message_fields
   ]
 
+  @typedoc false
   @type kiwi_skip_fn :: R.raw(:"fn(&mut Decoder<'_>) -> NifResult<()>")
 
+  @typedoc false
   @type kiwi_skip_kind ::
           R.enum(one: [kiwi_skip_fn()], repeated: [kiwi_skip_fn()], bytes: [])
 
+  @typedoc false
   @type kiwi_skip_field :: %{
           required(:id) => R.u32(),
           required(:kind) => kiwi_skip_kind()

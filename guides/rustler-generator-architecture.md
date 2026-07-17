@@ -61,8 +61,8 @@ used as a private dogfood check, not updated or published automatically.
 As of the current generator polish, Figler with local KiwiCodec and
 `decoder_sources: ["native/src/runtime.rs"]` should generate approximately:
 
-- `29,396` lines
-- `1,070,930` bytes
+- about `13,600` lines
+- about `585,000` bytes
 
 Small formatting or schema changes can move this slightly, but a large jump
 usually means a compact macro boundary was accidentally expanded.

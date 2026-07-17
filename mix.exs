@@ -1,7 +1,7 @@
 defmodule KiwiCodec.MixProject do
   use Mix.Project
 
-  @version "0.2.2"
+  @version "0.3.0"
   @source_url "https://github.com/open-pencil/kiwi_codec"
 
   def project do
@@ -64,7 +64,7 @@ defmodule KiwiCodec.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ["lib", "priv", "guides", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE*"]
+      files: ["lib", "guides", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE*"]
     ]
   end
 

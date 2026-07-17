@@ -242,6 +242,27 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     refute generated =~ "fn decode_image_from_decoder<'a>"
   end
 
+  test "borrows match-backed sparse field tables with decoder metadata" do
+    schema_source = """
+    message Image {
+      string name = 1;
+      bool visible = 2;
+    }
+    """
+
+    {generated, _config} =
+      generate_with_rustq_gen!(schema_source,
+        definitions: ["Image"],
+        features: [:sparse, :skip],
+        sparse_messages: :match,
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"]
+      )
+
+    assert generated =~
+             ~r/kiwi_sparse_message_fields\(\s*env,\s*decoder,\s*"Elixir.Example.Schema.Image",\s*"Image",\s*3,\s*&\[/
+  end
+
   test "renders descriptor-backed sparse message decoders when requested" do
     schema_source = """
     enum Kind {

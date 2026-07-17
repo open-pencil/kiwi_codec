@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore the required slice borrow for match-backed sparse field tables when
+  decoder source metadata is enabled.
 - Add reusable prepared runtime schemas with indexed definition, message-field,
   and enum lookup for repeated `SchemaInterpreter` calls.
 - Replace the timer-loop codec benchmark with Benchee coverage for small and

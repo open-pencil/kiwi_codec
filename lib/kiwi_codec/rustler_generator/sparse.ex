@@ -238,7 +238,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
           unquote(module_name),
           unquote(name),
           unquote(capacity),
-          array([unquote_splicing(entries)])
+          ref(array([unquote_splicing(entries)]))
         )
       end
     end

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add reusable prepared runtime schemas with indexed definition, message-field,
+  and enum lookup for repeated `SchemaInterpreter` calls.
 - Replace the timer-loop codec benchmark with Benchee coverage for small and
   256-field sparse/dense static and interpreted codecs, including allocation
   measurements.

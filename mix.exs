@@ -92,7 +92,8 @@ defmodule KiwiCodec.MixProject do
         KiwiCodec.Schema.EnumVariant,
         KiwiCodec.Schema.Field,
         KiwiCodec.Schema.Message,
-        KiwiCodec.Schema.Struct
+        KiwiCodec.Schema.Struct,
+        KiwiCodec.SchemaInterpreter.Prepared
       ],
       "Wire encoding": [
         KiwiCodec.Wire,

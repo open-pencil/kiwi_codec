@@ -4,16 +4,28 @@ defmodule KiwiCodec.SchemaInterpreter do
 
   Prefer generated modules for application code. This interpreter is useful for
   tooling, inspection, and compatibility tests where schemas are loaded at runtime.
+  For repeated calls, prepare the parsed schema once with `prepare/1` to replace
+  linear definition, message-field, and enum lookups with indexed lookups.
   """
 
   alias KiwiCodec.Schema
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Field, Message, Struct}
+  alias KiwiCodec.SchemaInterpreter.Prepared
   alias KiwiCodec.Wire
   alias KiwiCodec.Wire.Varint
 
-  @spec decode(Schema.t(), String.t(), binary()) :: map() | String.t() | integer()
-  def decode(%Schema{} = schema, definition_name, binary) do
+  @type schema :: Schema.t() | Prepared.t()
+
+  @doc """
+  Builds reusable lookup indexes for repeated runtime interpretation.
+  """
+  @spec prepare(Schema.t()) :: Prepared.t()
+  def prepare(%Schema{} = schema), do: Prepared.new(schema)
+
+  @spec decode(schema(), String.t(), binary()) :: map() | String.t() | integer()
+  def decode(schema, definition_name, binary)
+      when is_struct(schema, Schema) or is_struct(schema, Prepared) do
     {value, rest} = decode_definition(schema, definition!(schema, definition_name), binary)
 
     if rest == "" do
@@ -23,8 +35,9 @@ defmodule KiwiCodec.SchemaInterpreter do
     end
   end
 
-  @spec encode(Schema.t(), String.t(), map()) :: binary()
-  def encode(%Schema{} = schema, definition_name, value) do
+  @spec encode(schema(), String.t(), map()) :: binary()
+  def encode(schema, definition_name, value)
+      when is_struct(schema, Schema) or is_struct(schema, Prepared) do
     definition = definition!(schema, definition_name)
 
     schema
@@ -43,10 +56,9 @@ defmodule KiwiCodec.SchemaInterpreter do
     end)
   end
 
-  defp decode_definition(_schema, %SchemaEnum{} = definition, binary) do
+  defp decode_definition(schema, %SchemaEnum{} = definition, binary) do
     {value, rest} = Varint.decode_uint(binary)
-    variant = Enum.find(definition.variants, &(&1.value == value))
-    {if(variant, do: variant.name, else: value), rest}
+    {enum_name(schema, definition, value) || value, rest}
   end
 
   defp decode_message(schema, definition, binary, acc) do
@@ -57,9 +69,7 @@ defmodule KiwiCodec.SchemaInterpreter do
         {acc, rest}
 
       id ->
-        field =
-          Enum.find(definition.fields, &(&1.id == id)) || raise_unknown_field(definition, id)
-
+        field = message_field(schema, definition, id) || raise_unknown_field(definition, id)
         {value, tail} = decode_wire_field(schema, field, rest)
         decode_message(schema, definition, tail, Map.put(acc, field.name, value))
     end
@@ -89,29 +99,29 @@ defmodule KiwiCodec.SchemaInterpreter do
     end
   end
 
-  defp encode_definition(schema, %Message{} = definition, value)
-       when is_map(value) do
+  defp encode_definition(schema, %Message{} = definition, value) when is_map(value) do
     [Enum.map(definition.fields, &encode_message_field(schema, &1, value)), Varint.encode_uint(0)]
   end
 
-  defp encode_definition(schema, %Struct{} = definition, value)
-       when is_map(value) do
+  defp encode_definition(schema, %Struct{} = definition, value) when is_map(value) do
     Enum.map(definition.fields, fn field ->
       field_value = fetch_value!(value, field.name)
       encode_wire_field(schema, field, field_value)
     end)
   end
 
-  defp encode_definition(_schema, %SchemaEnum{} = definition, value) do
+  defp encode_definition(schema, %SchemaEnum{} = definition, value) do
     cond do
       is_integer(value) ->
         Varint.encode_uint(value)
 
       is_binary(value) ->
-        definition.variants
-        |> Enum.find(&(&1.name == value))
-        |> Map.fetch!(:value)
-        |> Varint.encode_uint()
+        schema
+        |> enum_value(definition, value)
+        |> case do
+          nil -> raise KiwiCodec.EncodeError, message: "invalid enum value #{inspect(value)}"
+          enum_value -> Varint.encode_uint(enum_value)
+        end
 
       true ->
         raise KiwiCodec.EncodeError, message: "invalid enum value #{inspect(value)}"
@@ -150,8 +160,41 @@ defmodule KiwiCodec.SchemaInterpreter do
     end
   end
 
-  defp definition!(schema, name) do
+  defp definition!(%Prepared{} = schema, name) do
+    Prepared.definition(schema, name) ||
+      raise ArgumentError, "unknown definition #{inspect(name)}"
+  end
+
+  defp definition!(%Schema{} = schema, name) do
     Schema.definition(schema, name) || raise ArgumentError, "unknown definition #{inspect(name)}"
+  end
+
+  defp message_field(%Prepared{} = schema, definition, id) do
+    Prepared.message_field(schema, definition.name, id)
+  end
+
+  defp message_field(%Schema{}, definition, id), do: Enum.find(definition.fields, &(&1.id == id))
+
+  defp enum_name(%Prepared{} = schema, definition, value) do
+    Prepared.enum_name(schema, definition.name, value)
+  end
+
+  defp enum_name(%Schema{}, definition, value) do
+    case Enum.find(definition.variants, &(&1.value == value)) do
+      nil -> nil
+      variant -> variant.name
+    end
+  end
+
+  defp enum_value(%Prepared{} = schema, definition, name) do
+    Prepared.enum_value(schema, definition.name, name)
+  end
+
+  defp enum_value(%Schema{}, definition, name) do
+    case Enum.find(definition.variants, &(&1.name == name)) do
+      nil -> nil
+      variant -> variant.value
+    end
   end
 
   defp fetch_value(map, key), do: Map.get(map, key)

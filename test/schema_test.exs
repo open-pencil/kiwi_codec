@@ -76,8 +76,11 @@ defmodule KiwiCodec.SchemaTest do
     }
 
     binary = KiwiCodec.SchemaInterpreter.encode(schema, "NodeChange", value)
+    prepared = KiwiCodec.SchemaInterpreter.prepare(schema)
 
     assert KiwiCodec.SchemaInterpreter.decode(schema, "NodeChange", binary) == value
+    assert KiwiCodec.SchemaInterpreter.encode(prepared, "NodeChange", value) == binary
+    assert KiwiCodec.SchemaInterpreter.decode(prepared, "NodeChange", binary) == value
   end
 
   defp clear_locations(schema) do

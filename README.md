@@ -69,6 +69,15 @@ binary = KiwiCodec.SchemaInterpreter.encode(schema, "Thing", %{"id" => 1, "name"
 value = KiwiCodec.SchemaInterpreter.decode(schema, "Thing", binary)
 ```
 
+For repeated interpretation, prepare the schema once. Prepared schemas index
+definitions, message fields, and enum values instead of scanning schema lists for
+every decoded field:
+
+```elixir
+prepared = KiwiCodec.SchemaInterpreter.prepare(schema)
+value = KiwiCodec.SchemaInterpreter.decode(prepared, "Thing", binary)
+```
+
 ## Transform modules
 
 Modules can override `transform_module/0` for custom normalization before encode and after decode:

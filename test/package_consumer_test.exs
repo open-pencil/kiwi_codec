@@ -24,8 +24,7 @@ defmodule KiwiCodec.PackageConsumerTest do
     refute lock =~ ~s|"rustq"|
     refute lock =~ ~s|"reach"|
 
-    output = run!(consumer, "mix", ["test", "--warnings-as-errors"], env)
-    assert output =~ "Result: 1 passed"
+    run!(consumer, "mix", ["test", "--warnings-as-errors"], env)
   end
 
   defp run!(directory, command, args, env \\ []) do

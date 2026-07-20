@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.3.1 - 2026-07-18
+
+- Compile the RustQ-backed Rustler generator only in development and test
+  environments, keeping production codec consumers free of RustQ and its
+  development-tool dependency graph.
+- Continue shipping the Rustler generator source for development-time native
+  generation while keeping the production runtime package limited to the Kiwi
+  codec and schema APIs.
+- Remove the unused Jason dependency from the production package.
+
 ## v0.3.0 - 2026-07-17
 
 - Restore the required slice borrow for match-backed sparse field tables when

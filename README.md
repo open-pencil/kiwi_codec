@@ -101,8 +101,10 @@ schema = KiwiCodec.Schema.Binary.decode(binary_schema)
 ## Rustler decoder generation
 
 `KiwiCodec.RustlerGenerator.source/2` returns complete generated Rust source for
-native Rustler decoders. Use it from `rustq.exs` and let `mix rustq.gen` own
-writing and freshness checks:
+native Rustler decoders. It is a build-time API compiled in development and test
+environments; production compilation includes only the Kiwi codec/runtime APIs
+and does not require RustQ. Use the generator from `rustq.exs` and let
+`mix rustq.gen` own writing and freshness checks:
 
 ```elixir
 use RustQ.Config

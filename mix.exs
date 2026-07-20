@@ -1,7 +1,7 @@
 defmodule KiwiCodec.MixProject do
   use Mix.Project
 
-  @version "0.3.0"
+  @version "0.3.1"
   @source_url "https://github.com/open-pencil/kiwi_codec"
 
   def project do
@@ -12,6 +12,7 @@ defmodule KiwiCodec.MixProject do
       consolidate_protocols: Mix.env() != :test,
       start_permanent: Mix.env() == :prod,
       description: "Pure Elixir codec for Kiwi schema binary messages",
+      elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
       dialyzer: [plt_add_apps: [:mix], flags: [:no_opaque]],
       package: package(),
@@ -27,6 +28,9 @@ defmodule KiwiCodec.MixProject do
   def application do
     [extra_applications: [:logger]]
   end
+
+  defp elixirc_paths(env) when env in [:dev, :test], do: ["lib", "codegen"]
+  defp elixirc_paths(_env), do: ["lib"]
 
   defp aliases do
     [
@@ -47,7 +51,6 @@ defmodule KiwiCodec.MixProject do
     [
       rustq_dep(),
       {:varint, "~> 1.6"},
-      {:jason, "~> 1.4", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
@@ -57,14 +60,14 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 1.0.0-rc.3", runtime: false}
+    {:rustq, "~> 1.0.0-rc.3", only: [:dev, :test], runtime: false}
   end
 
   defp package do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ["lib", "guides", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE*"]
+      files: ["lib", "codegen", "guides", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE*"]
     ]
   end
 

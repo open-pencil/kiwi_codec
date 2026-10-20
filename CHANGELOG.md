@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add the `:unknown_fields` Rustler generator option. `:runtime_schema` makes
+  generated message decoders skip fields the compiled schema does not define,
+  using a `KiwiRuntimeSchema` read from the schema that accompanies the data, so
+  data written with a newer, compatible schema decodes instead of failing with
+  `BadArg`. The default, `:error`, keeps rejecting such fields.
+- Route every generated message decoder's unknown fields through one
+  `kiwi_unknown_field` helper, and pass full message decoders their definition
+  name.
+- Require RustQ 1.0.0-rc.11 for code generation.
+
 ## v0.3.1 - 2026-07-18
 
 - Compile the RustQ-backed Rustler generator only in development and test

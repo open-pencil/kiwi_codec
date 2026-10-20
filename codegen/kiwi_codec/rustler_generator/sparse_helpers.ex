@@ -73,7 +73,10 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
     quote do
       use RustQ.Meta,
         rust_sources: unquote(decoder_sources),
-        callable_modules: [KiwiCodec.RustlerGenerator.SkipValueHelpers]
+        callable_modules: [
+          KiwiCodec.RustlerGenerator.SkipValueHelpers,
+          KiwiCodec.RustlerGenerator.UnknownFields
+        ]
 
       alias RustQ.Type, as: R
 
@@ -489,7 +492,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
                 env,
                 decoder,
                 module_name,
-                _definition_name,
+                definition_name,
                 capacity,
                 fields
               ) do
@@ -503,6 +506,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
         kiwi_sparse_message_fields_remaining(
           env,
           decoder,
+          definition_name,
           fields,
           keys,
           values
@@ -518,11 +522,19 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
       @spec kiwi_sparse_message_fields_remaining(
               R.path(:Env, R.lifetime(:a)),
               R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+              R.str(),
               R.slice(R.path(:KiwiSparseField)),
               R.mut_ref(R.vec(term())),
               R.mut_ref(R.vec(term()))
             ) :: R.nif_result(R.unit())
-      defrust kiwi_sparse_message_fields_remaining(env, decoder, fields, keys, values) do
+      defrust kiwi_sparse_message_fields_remaining(
+                env,
+                decoder,
+                definition_name,
+                fields,
+                keys,
+                values
+              ) do
         field_id = decoder.read_var_uint()
 
         if field_id == 0 do
@@ -534,11 +546,18 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
               keys.push(Atom.from_str(env, field.name).unwrap().encode(env))
               values.push(kiwi_sparse_field_value(env, decoder, field))
 
-              kiwi_sparse_message_fields_remaining(env, decoder, fields, keys, values)
-
             {:error, _index} ->
-              {:error, badarg()}
+              kiwi_unknown_field(decoder, definition_name, field_id)
           end
+
+          kiwi_sparse_message_fields_remaining(
+            env,
+            decoder,
+            definition_name,
+            fields,
+            keys,
+            values
+          )
         end
       end
     end

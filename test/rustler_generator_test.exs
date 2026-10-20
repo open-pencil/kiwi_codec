@@ -23,7 +23,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
         :decoder,
         :decoder_sources,
         :features,
-        :sparse_messages
+        :sparse_messages,
+        :unknown_fields
       ])
       |> inspect(limit: :infinity)
 
@@ -319,6 +320,50 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     refute generated =~ "bytes kiwi_sparse_bytes_value"
     refute generated =~ "enum KiwiSparseKind"
     refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
+  end
+
+  test "rejects unknown message fields by default" do
+    {generated, _config} =
+      generate_with_rustq_gen!("message Node { string name = 1; }",
+        definitions: ["Node"],
+        features: [:full, :sparse, :skip],
+        sparse_messages: :descriptor,
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"]
+      )
+
+    assert generated =~ "fn kiwi_unknown_field("
+    assert generated =~ "kiwi_unknown_field(decoder, definition_name, field_id)?;"
+    refute generated =~ "struct KiwiRuntimeSchema"
+    refute generated =~ "runtime_schema()"
+  end
+
+  test "skips unknown message fields through a runtime schema when requested" do
+    {generated, _config} =
+      generate_with_rustq_gen!("message Node { string name = 1; }",
+        definitions: ["Node"],
+        features: [:full, :sparse, :skip],
+        sparse_messages: :descriptor,
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"],
+        unknown_fields: :runtime_schema
+      )
+
+    assert generated =~ "pub struct KiwiRuntimeSchema"
+    assert generated =~ "match decoder.runtime_schema()"
+    assert generated =~ "kiwi_message_fields($env, $decoder, $definition_name,"
+    assert generated =~ "definition \"Node\";"
+    assert generated =~ "kiwi_unknown_field(decoder, definition_name, field_id)?;"
+  end
+
+  test "rejects an unknown unknown-fields mode" do
+    assert_raise ArgumentError, ~r/expected :unknown_fields/, fn ->
+      KiwiCodec.RustlerGenerator.source(
+        KiwiCodec.parse_schema!("message Node { string name = 1; }"),
+        module_prefix: "Example.Schema",
+        unknown_fields: :ignore
+      )
+    end
   end
 
   test "ignores decoder source metadata when skip decoders are not requested" do

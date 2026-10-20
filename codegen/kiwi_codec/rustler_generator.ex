@@ -55,6 +55,10 @@ defmodule KiwiCodec.RustlerGenerator do
     * `:features` - decoder families to generate. Defaults to `[:full]`.
       Use `:sparse` and `:skip` for generic sparse map decoders and skip
       helpers used by projection-oriented native backends.
+    * `:unknown_fields` - how message decoders handle fields the schema does
+      not define: `:error` (default) rejects the data; `:runtime_schema` skips
+      them using a schema read with the data. See
+      `KiwiCodec.RustlerGenerator.UnknownFields` for the `Decoder` contract.
     * `:sparse_messages` - sparse message generation strategy. Defaults to
       `:match`. Use `:descriptor` to generate compact descriptor-backed sparse
       message decoders and benchmark before adopting on hot schemas.

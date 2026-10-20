@@ -60,7 +60,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 1.0.0-rc.3", only: [:dev, :test], runtime: false}
+    {:rustq, "~> 1.0.0-rc.11", only: [:dev, :test], runtime: false}
   end
 
   defp package do

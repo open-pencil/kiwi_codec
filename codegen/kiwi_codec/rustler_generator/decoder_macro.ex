@@ -54,6 +54,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
       module_static: RustExpr.ident(Name.module_atom_static(definition.name)),
       keys_static: RustExpr.ident(Name.struct_keys_static(definition.name)),
       module: Name.module_name(module_prefix, definition.name),
+      definition: definition.name,
       keys: key_rows(definition.fields),
       fields: message_field_rows(definition.fields, definition_map)
     )

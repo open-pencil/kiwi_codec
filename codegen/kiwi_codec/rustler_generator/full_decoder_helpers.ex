@@ -1,6 +1,10 @@
 defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
   use RustQ.Meta,
-    callable_modules: [RustQ.Rustler.Atom, RustQ.Rustler.Term]
+    callable_modules: [
+      RustQ.Rustler.Atom,
+      RustQ.Rustler.Term,
+      KiwiCodec.RustlerGenerator.UnknownFields
+    ]
 
   @moduledoc """
   RustQ-authored full Kiwi decoder macro helpers.
@@ -110,6 +114,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
                  module_static: module_static(:ident),
                  keys_static: keys_static(:ident),
                  module: module_name(:literal),
+                 definition: definition_name(:literal),
                  keys:
                    repeat do
                      key(:literal)
@@ -154,6 +159,7 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
       kiwi_message_fields(
         env,
         decoder,
+        definition_name,
         struct_keys,
         struct_values,
         array([
@@ -281,11 +287,12 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
   @spec kiwi_message_fields(
           R.path(:Env, R.lifetime(:a)),
           R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+          R.str(),
           R.slice(R.path({:rustler, :wrapper, :NIF_TERM})),
           R.vec(R.path({:rustler, :wrapper, :NIF_TERM})),
           R.slice(R.path(:KiwiFullField))
         ) :: R.nif_result(term())
-  defrust kiwi_message_fields(env, decoder, keys, values, fields) do
+  defrust kiwi_message_fields(env, decoder, definition_name, keys, values, fields) do
     field_id = decoder.read_var_uint()
 
     if field_id == 0 do
@@ -297,10 +304,11 @@ defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
           value = kiwi_full_field_value(env, decoder, field)
           next_values = values
           assign!(index(next_values, field.index), value.as_c_arg())
-          kiwi_message_fields(env, decoder, keys, next_values, fields)
+          kiwi_message_fields(env, decoder, definition_name, keys, next_values, fields)
 
         {:error, _index} ->
-          {:error, badarg()}
+          kiwi_unknown_field(decoder, definition_name, field_id)
+          kiwi_message_fields(env, decoder, definition_name, keys, values, fields)
       end
     end
   end

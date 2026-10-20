@@ -12,6 +12,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   alias KiwiCodec.RustlerGenerator.SkipHelpers
   alias KiwiCodec.RustlerGenerator.SkipValueHelpers
   alias KiwiCodec.RustlerGenerator.SparseHelpers
+  alias KiwiCodec.RustlerGenerator.UnknownFields
   alias RustQ.Rust.AST
   alias RustQ.Rustler.{Atom, Term}
 
@@ -21,6 +22,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     decoder_sources = helper_decoder_sources(opts, features)
 
     decoder_macros(features, decoder_sources, opts) ++
+      UnknownFields.fragments(Keyword.get(opts, :unknown_fields, :error)) ++
       Atom.cached([]) ++
       Term.helpers(
         include: [

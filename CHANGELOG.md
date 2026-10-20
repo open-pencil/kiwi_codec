@@ -10,6 +10,9 @@
 - Route every generated message decoder's unknown fields through one
   `kiwi_unknown_field` helper, and pass full message decoders their definition
   name.
+- Accept a `:schema` option in `KiwiCodec.decode/3` to skip message fields the
+  generated modules do not define, using the schema the data was written with.
+- Add `KiwiCodec.SchemaInterpreter.skip_message_field/4`.
 - Require RustQ 1.0.0-rc.11 for code generation.
 
 ## v0.3.1 - 2026-07-18

@@ -59,9 +59,16 @@ defmodule KiwiCodec do
 
   @doc """
   Decodes a binary as the given Kiwi module.
+
+  Options:
+
+    * `:schema` - the schema the data was written with, as a `KiwiCodec.Schema`
+      or a prepared `KiwiCodec.SchemaInterpreter` schema. Message fields the
+      generated modules do not define are skipped using it. Without it they
+      raise `KiwiCodec.DecodeError`.
   """
-  @spec decode(binary(), module()) :: struct()
-  def decode(binary, module) when is_binary(binary) and is_atom(module) do
-    KiwiCodec.Decoder.decode(binary, module)
+  @spec decode(binary(), module(), keyword()) :: struct()
+  def decode(binary, module, opts \\ []) when is_binary(binary) and is_atom(module) do
+    KiwiCodec.Decoder.decode(binary, module, opts)
   end
 end

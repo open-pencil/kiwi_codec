@@ -35,6 +35,25 @@ defmodule KiwiCodec.SchemaInterpreter do
     end
   end
 
+  @doc """
+  Skips the value of message field `field_id` of `definition_name` at the start
+  of `binary`, returning the bytes after it.
+
+  Used to step over fields a compiled decoder does not know, with the schema
+  the data was written with.
+  """
+  @spec skip_message_field(schema(), String.t(), non_neg_integer(), binary()) :: binary()
+  def skip_message_field(schema, definition_name, field_id, binary)
+      when is_struct(schema, Schema) or is_struct(schema, Prepared) do
+    definition = definition!(schema, definition_name)
+
+    field =
+      message_field(schema, definition, field_id) || raise_unknown_field(definition, field_id)
+
+    {_value, rest} = decode_wire_field(schema, field, binary)
+    rest
+  end
+
   @spec encode(schema(), String.t(), map()) :: binary()
   def encode(schema, definition_name, value)
       when is_struct(schema, Schema) or is_struct(schema, Prepared) do

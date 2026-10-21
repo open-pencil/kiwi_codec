@@ -8,6 +8,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   `defrustmacro`, and type metadata in the helper modules selected here.
   """
 
+  alias KiwiCodec.RustlerGenerator.AtomCache
   alias KiwiCodec.RustlerGenerator.FullDecoderHelpers
   alias KiwiCodec.RustlerGenerator.SkipHelpers
   alias KiwiCodec.RustlerGenerator.SkipValueHelpers
@@ -49,7 +50,10 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         else: []
       ),
       if(:sparse in features,
-        do: sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts), opts),
+        do: [
+          AtomCache.fragments(),
+          sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts), opts)
+        ],
         else: []
       )
     ]

@@ -170,6 +170,42 @@ impl KiwiRecord {
         self.with_fields(fields)
     }
 
+    /// The record with `field` holding `record`.
+    pub fn put_record(&self, field: u32, record: KiwiRecord) -> Self {
+        self.put(field, KiwiValue::Record(record))
+    }
+
+    /// The record with array `field` holding `records`.
+    pub fn put_records(&self, field: u32, records: Vec<KiwiRecord>) -> Self {
+        self.put(field, KiwiValue::Array(records.into_iter().map(KiwiValue::Record).collect()))
+    }
+
+    /// The record with each record in array `field` replaced by `update` of it. A record that
+    /// does not set the field is returned as it is.
+    pub fn map_records(&self, field: u32, update: impl Fn(&KiwiRecord) -> KiwiRecord) -> Self {
+        match self.get(field) {
+            Some(KiwiValue::Array(values)) => {
+                let values = values
+                    .iter()
+                    .map(|value| match value {
+                        KiwiValue::Record(record) => KiwiValue::Record(update(record)),
+                        other => other.clone(),
+                    })
+                    .collect();
+                self.put(field, KiwiValue::Array(values))
+            }
+            _ => self.clone(),
+        }
+    }
+
+    /// The record with the record in `field` replaced by `update` of it, when it has one.
+    pub fn map_record(&self, field: u32, update: impl Fn(&KiwiRecord) -> KiwiRecord) -> Self {
+        match self.record(field) {
+            Some(record) => self.put_record(field, update(record)),
+            None => self.clone(),
+        }
+    }
+
     /// The record without `field`.
     pub fn delete(&self, field: u32) -> Self {
         match self.position(field) {

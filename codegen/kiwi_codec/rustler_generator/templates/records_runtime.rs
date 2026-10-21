@@ -90,6 +90,76 @@ impl KiwiRecord {
         self.position(field).is_ok()
     }
 
+    /// The record a message or struct field holds.
+    pub fn record(&self, field: u32) -> Option<&KiwiRecord> {
+        match self.get(field) {
+            Some(KiwiValue::Record(record)) => Some(record),
+            _ => None,
+        }
+    }
+
+    /// The values an array field holds; none when the field is unset.
+    pub fn array(&self, field: u32) -> &[KiwiValue] {
+        match self.get(field) {
+            Some(KiwiValue::Array(values)) => values,
+            _ => &[],
+        }
+    }
+
+    /// The records an array field holds.
+    pub fn records(&self, field: u32) -> Vec<&KiwiRecord> {
+        self.array(field)
+            .iter()
+            .filter_map(|value| match value {
+                KiwiValue::Record(record) => Some(record),
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn str(&self, field: u32) -> Option<&str> {
+        match self.get(field) {
+            Some(KiwiValue::String(value)) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn bool(&self, field: u32) -> Option<bool> {
+        match self.get(field) {
+            Some(KiwiValue::Bool(value)) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn uint(&self, field: u32) -> Option<u32> {
+        match self.get(field) {
+            Some(KiwiValue::Uint(value)) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn int(&self, field: u32) -> Option<i32> {
+        match self.get(field) {
+            Some(KiwiValue::Int(value)) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn float(&self, field: u32) -> Option<f32> {
+        match self.get(field) {
+            Some(KiwiValue::Float(value)) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// An enum field's value.
+    pub fn enum_value(&self, field: u32) -> Option<u32> {
+        match self.get(field) {
+            Some(KiwiValue::Enum(value, _definition)) => Some(*value),
+            _ => None,
+        }
+    }
+
     /// The record with `field` set to `value`.
     pub fn put(&self, field: u32, value: KiwiValue) -> Self {
         let mut fields = self.fields.to_vec();

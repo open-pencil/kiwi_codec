@@ -4,11 +4,12 @@ defmodule KiwiCodec.RustlerGenerator.Records do
   building Elixir terms, and encode later as the sparse maps generated decoders return.
 
   The record runtime is schema-independent. The schema only supplies a definition table, read
-  by the decoder and encoder, and constants naming each definition and field for code that
-  works with records:
+  by the decoder and encoder, and constants naming each definition, field, and enum value for
+  code that works with records:
 
       kiwi_records::node_change::DEFINITION
       kiwi_records::node_change::FILL_PAINTS
+      kiwi_records::node_phase::REMOVED
 
   Decoding needs the caller's `Decoder<'a>` to provide, besides the primitive readers,
   `read_byte_array_value(&mut self) -> NifResult<&'a [u8]>`,
@@ -104,7 +105,8 @@ defmodule KiwiCodec.RustlerGenerator.Records do
           module_identifier(definition.name),
           [
             A.const(:DEFINITION, :u32, A.lit(Map.fetch!(indexes, definition.name)), vis: :pub)
-            | Enum.map(fields(definition), &field_constant/1)
+            | Enum.map(fields(definition), &field_constant/1) ++
+                Enum.map(variants(definition), &variant_constant/1)
           ],
           vis: :pub
         )
@@ -116,6 +118,11 @@ defmodule KiwiCodec.RustlerGenerator.Records do
   defp field_constant(field) do
     name = field.name |> Name.rust_identifier() |> String.upcase()
     A.const(name, :u32, A.lit(field.id), vis: :pub)
+  end
+
+  defp variant_constant(variant) do
+    name = variant.name |> Name.rust_identifier() |> String.upcase()
+    A.const(name, :u32, A.lit(variant.value), vis: :pub)
   end
 
   defp module_identifier(name) do

@@ -152,6 +152,22 @@ impl KiwiRecord {
         }
     }
 
+    /// The floats in array `field`; other values are left out.
+    pub fn floats(&self, field: u32) -> Vec<f32> {
+        self.array(field)
+            .iter()
+            .filter_map(|value| match value {
+                KiwiValue::Float(value) => Some(*value),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The ids of the fields the record sets, in order.
+    pub fn field_ids(&self) -> Vec<u32> {
+        self.fields.iter().map(|(id, _)| *id).collect()
+    }
+
     /// An enum field's value.
     pub fn enum_value(&self, field: u32) -> Option<u32> {
         match self.get(field) {
@@ -168,6 +184,31 @@ impl KiwiRecord {
             Err(index) => fields.insert(index, (field, value)),
         }
         self.with_fields(fields)
+    }
+
+    /// The record with `field` holding `value`.
+    pub fn put_bool(&self, field: u32, value: bool) -> Self {
+        self.put(field, KiwiValue::Bool(value))
+    }
+
+    /// The record with `field` holding `value`.
+    pub fn put_uint(&self, field: u32, value: u32) -> Self {
+        self.put(field, KiwiValue::Uint(value))
+    }
+
+    /// The record with `field` holding `value`.
+    pub fn put_float(&self, field: u32, value: f32) -> Self {
+        self.put(field, KiwiValue::Float(value))
+    }
+
+    /// The record with `field` holding `value`.
+    pub fn put_str(&self, field: u32, value: &str) -> Self {
+        self.put(field, KiwiValue::String(value.into()))
+    }
+
+    /// The record with array `field` holding `values`.
+    pub fn put_floats(&self, field: u32, values: Vec<f32>) -> Self {
+        self.put(field, KiwiValue::Array(values.into_iter().map(KiwiValue::Float).collect()))
     }
 
     /// The record with `field` holding `record`.

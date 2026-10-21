@@ -356,6 +356,35 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "kiwi_unknown_field(decoder, definition_name, field_id)?;"
   end
 
+  test "generates native records with a definition table and field constants" do
+    {generated, _config} =
+      generate_with_rustq_gen!(
+        """
+        enum Kind { PLAIN = 0; FANCY = 3; }
+        struct Point { float x; float y; }
+        message Type { string displayName = 2; Kind kind = 1; Point[] points = 4; byte[] data = 5; }
+        """,
+        definitions: ["Type"],
+        features: [:records],
+        module_prefix: "Example.Schema"
+      )
+
+    assert generated =~ "pub struct KiwiRecord {"
+    assert generated =~ "pub fn kiwi_decode_record("
+    assert generated =~ "pub fn kiwi_encode_record_fields<'a>("
+    assert generated =~ "fn kiwi_atom(env: Env<'_>, name: &'static str) -> Atom"
+    assert generated =~ "static KIWI_RECORD_DEFINITIONS: &[KiwiRecordDefinition]"
+    assert generated =~ ~s(module: "Elixir.Example.Schema.Type")
+    assert generated =~ ~s(name: "display_name")
+    assert generated =~ ~s(name: "fancy")
+
+    # Message fields are listed by id; a Rust keyword gets a suffix as a module name.
+    assert generated =~ ~r/name: "kind".*name: "display_name"/s
+    assert generated =~ "pub mod type_ {"
+    assert generated =~ "pub const DISPLAY_NAME: u32 = 2;"
+    assert generated =~ "pub mod point {"
+  end
+
   test "rejects an unknown unknown-fields mode" do
     assert_raise ArgumentError, ~r/expected :unknown_fields/, fn ->
       KiwiCodec.RustlerGenerator.source(

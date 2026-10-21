@@ -49,11 +49,9 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         do: skip_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts)),
         else: []
       ),
+      if(:sparse in features or :records in features, do: AtomCache.fragments(), else: []),
       if(:sparse in features,
-        do: [
-          AtomCache.fragments(),
-          sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts), opts)
-        ],
+        do: sparse_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts), opts),
         else: []
       )
     ]

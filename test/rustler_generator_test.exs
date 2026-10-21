@@ -384,6 +384,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     assert generated =~ "pub const DISPLAY_NAME: u32 = 2;"
     assert generated =~ "pub mod point {"
     assert generated =~ "pub const FANCY: u32 = 3;"
+    assert generated =~ "pub mod kiwi_record_definitions {"
+    assert generated =~ ~r/pub const TYPE: u32 = \d+;/
   end
 
   test "rejects an unknown unknown-fields mode" do

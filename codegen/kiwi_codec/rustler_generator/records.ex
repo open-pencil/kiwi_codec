@@ -7,7 +7,7 @@ defmodule KiwiCodec.RustlerGenerator.Records do
   by the decoder and encoder, and constants naming each definition, field, and enum value for
   code that works with records:
 
-      kiwi_records::node_change::DEFINITION
+      kiwi_record_definitions::NODE_CHANGE
       kiwi_records::node_change::FILL_PAINTS
       kiwi_records::node_phase::REMOVED
 
@@ -97,22 +97,30 @@ defmodule KiwiCodec.RustlerGenerator.Records do
   defp variants(%SchemaEnum{variants: variants}), do: Enum.sort_by(variants, & &1.value)
   defp variants(_definition), do: []
 
+  # Definition indexes live apart from field and enum constants, which take any schema name.
   defp constants(definitions, indexes) do
-    A.module(
-      :kiwi_records,
-      Enum.map(definitions, fn definition ->
-        A.module(
-          module_identifier(definition.name),
-          [
-            A.const(:DEFINITION, :u32, A.lit(Map.fetch!(indexes, definition.name)), vis: :pub)
-            | Enum.map(fields(definition), &field_constant/1) ++
-                Enum.map(variants(definition), &variant_constant/1)
-          ],
-          vis: :pub
-        )
-      end),
-      vis: :pub
-    )
+    [
+      A.module(
+        :kiwi_record_definitions,
+        Enum.map(definitions, fn definition ->
+          name = definition.name |> Name.rust_identifier() |> String.upcase()
+          A.const(name, :u32, A.lit(Map.fetch!(indexes, definition.name)), vis: :pub)
+        end),
+        vis: :pub
+      ),
+      A.module(
+        :kiwi_records,
+        Enum.map(definitions, fn definition ->
+          A.module(
+            module_identifier(definition.name),
+            Enum.map(fields(definition), &field_constant/1) ++
+              Enum.map(variants(definition), &variant_constant/1),
+            vis: :pub
+          )
+        end),
+        vis: :pub
+      )
+    ]
   end
 
   defp field_constant(field) do

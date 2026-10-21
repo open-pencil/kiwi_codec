@@ -175,6 +175,11 @@ impl KiwiRecord {
         self.put(field, KiwiValue::Record(record))
     }
 
+    /// The record with `field` holding `value` of the enum defined at `definition`.
+    pub fn put_enum(&self, field: u32, value: u32, definition: u32) -> Self {
+        self.put(field, KiwiValue::Enum(value, definition))
+    }
+
     /// The record with array `field` holding `records`.
     pub fn put_records(&self, field: u32, records: Vec<KiwiRecord>) -> Self {
         self.put(field, KiwiValue::Array(records.into_iter().map(KiwiValue::Record).collect()))

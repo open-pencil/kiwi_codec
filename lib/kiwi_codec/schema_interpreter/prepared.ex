@@ -28,7 +28,7 @@ defmodule KiwiCodec.SchemaInterpreter.Prepared do
             enum_values_by_name: %{String.t() => %{String.t() => integer()}}
           }
 
-  @doc false
+  @doc "Indexes a schema's definitions, message fields, and enum values for decoding."
   @spec new(Schema.t()) :: t()
   def new(%Schema{} = schema) do
     %__MODULE__{
@@ -40,20 +40,24 @@ defmodule KiwiCodec.SchemaInterpreter.Prepared do
     }
   end
 
-  @doc false
+  @doc "Returns the definition named `name`, or `nil`."
+  @spec definition(t(), String.t()) :: Schema.definition() | nil
   def definition(%__MODULE__{definitions: definitions}, name), do: Map.get(definitions, name)
 
-  @doc false
+  @doc "Returns the field with tag `id` of the message `definition_name`, or `nil`."
+  @spec message_field(t(), String.t(), pos_integer()) :: Schema.Field.t() | nil
   def message_field(%__MODULE__{message_fields_by_id: indexes}, definition_name, id) do
     indexes |> Map.get(definition_name, %{}) |> Map.get(id)
   end
 
-  @doc false
+  @doc "Returns the name of the enum `definition_name`'s variant with `value`, or `nil`."
+  @spec enum_name(t(), String.t(), integer()) :: String.t() | nil
   def enum_name(%__MODULE__{enum_names_by_value: indexes}, definition_name, value) do
     indexes |> Map.get(definition_name, %{}) |> Map.get(value)
   end
 
-  @doc false
+  @doc "Returns the value of the enum `definition_name`'s variant `name`, or `nil`."
+  @spec enum_value(t(), String.t(), String.t()) :: integer() | nil
   def enum_value(%__MODULE__{enum_values_by_name: indexes}, definition_name, name) do
     indexes |> Map.get(definition_name, %{}) |> Map.get(name)
   end

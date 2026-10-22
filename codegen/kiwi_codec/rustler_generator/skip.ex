@@ -8,8 +8,8 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   """
 
   alias KiwiCodec.RustlerGenerator.RustExpr
-  alias KiwiCodec.RustlerGenerator.SkipDescriptor
-  alias KiwiCodec.RustlerGenerator.SkipValueHelpers
+  alias __MODULE__.Descriptor
+  alias __MODULE__.ValueHelpers
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Meta.AST, as: MetaAST
@@ -57,7 +57,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   defp definition(%SchemaEnum{}, _definition_map, _messages?, _struct_mode), do: []
 
   defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?, _struct_mode) do
-    MetaAST.macro_call!(SkipValueHelpers, :kiwi_skip_struct_decoder,
+    MetaAST.macro_call!(ValueHelpers, :kiwi_skip_struct_decoder,
       fn: skip_function_name(name),
       decoder: :decoder,
       fields: skip_descriptor_rows(fields, definition_map)
@@ -67,7 +67,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   defp definition(%Message{}, _definition_map, false, _struct_mode), do: []
 
   defp definition(%Message{name: name, fields: fields}, definition_map, true, _struct_mode) do
-    MetaAST.macro_call!(SkipValueHelpers, :kiwi_skip_message_decoder,
+    MetaAST.macro_call!(ValueHelpers, :kiwi_skip_message_decoder,
       fn: skip_function_name(name),
       decoder: :decoder,
       definition: name,
@@ -127,5 +127,5 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   end
 
   defp scalar_skip_function(type, definition_map),
-    do: SkipDescriptor.scalar_function(type, definition_map)
+    do: Descriptor.scalar_function(type, definition_map)
 end

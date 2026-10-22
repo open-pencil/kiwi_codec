@@ -1,4 +1,4 @@
-defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
+defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
   use RustQ.Meta,
     callable_modules: [KiwiCodec.RustlerGenerator.UnknownFields]
 

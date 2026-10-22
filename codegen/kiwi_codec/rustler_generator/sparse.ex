@@ -8,8 +8,8 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
 
   alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.RustlerGenerator.RustExpr
-  alias KiwiCodec.RustlerGenerator.SkipDescriptor
-  alias KiwiCodec.RustlerGenerator.SparseHelpers
+  alias __MODULE__.Helpers
+  alias KiwiCodec.RustlerGenerator.Skip
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Meta.AST, as: MetaAST
@@ -61,7 +61,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          _struct_mode,
          _message_mode
        ) do
-    SparseHelpers.macro_call(:kiwi_sparse_enum_decoder,
+    Helpers.macro_call(:kiwi_sparse_enum_decoder,
       fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
       env: :env,
       decoder: :decoder,
@@ -98,7 +98,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
        ) do
     ident = RustExpr.ident(name)
 
-    SparseHelpers.macro_call(:kiwi_sparse_skip_message_descriptor_decoder,
+    Helpers.macro_call(:kiwi_sparse_skip_message_descriptor_decoder,
       sparse_fn: "decode_sparse_#{ident}_from_decoder",
       skip_fn: "skip_#{ident}_from_decoder",
       env: :env,
@@ -121,7 +121,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          _struct_mode,
          :descriptor
        ) do
-    SparseHelpers.macro_call(:kiwi_sparse_message_descriptor_decoder,
+    Helpers.macro_call(:kiwi_sparse_message_descriptor_decoder,
       fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
       env: :env,
       decoder: :decoder,
@@ -136,7 +136,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   end
 
   defp sparse_struct_decoder(name, module_prefix, fields, definition_map) do
-    SparseHelpers.macro_call(:kiwi_sparse_struct_decoder,
+    Helpers.macro_call(:kiwi_sparse_struct_decoder,
       fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
       env: :env,
       decoder: :decoder,
@@ -311,7 +311,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   end
 
   defp skip_descriptor(%{type: type}, definition_map),
-    do: {false, false, SkipDescriptor.scalar_function(type, definition_map)}
+    do: {false, false, Skip.Descriptor.scalar_function(type, definition_map)}
 
   defp sparse_function_name(name),
     do: Identifier.atom!("decode_sparse_#{RustExpr.ident(name)}_from_decoder")

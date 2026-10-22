@@ -1,4 +1,4 @@
-defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
+defmodule KiwiCodec.RustlerGenerator.Sparse.Helpers do
   @moduledoc """
   Builds RustQ-authored shared sparse helper functions for generated Rustler decoders.
 
@@ -75,7 +75,7 @@ defmodule KiwiCodec.RustlerGenerator.SparseHelpers do
         rust_sources: unquote(decoder_sources),
         callable_modules: [
           KiwiCodec.RustlerGenerator.AtomCache,
-          KiwiCodec.RustlerGenerator.SkipValueHelpers,
+          KiwiCodec.RustlerGenerator.Skip.ValueHelpers,
           KiwiCodec.RustlerGenerator.UnknownFields
         ]
 

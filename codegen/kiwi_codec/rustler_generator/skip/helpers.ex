@@ -1,4 +1,4 @@
-defmodule KiwiCodec.RustlerGenerator.SkipHelpers do
+defmodule KiwiCodec.RustlerGenerator.Skip.Helpers do
   @moduledoc """
   Builds RustQ-authored shared skip helper functions for generated Rustler decoders.
 
@@ -60,7 +60,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipHelpers do
       use RustQ.Meta,
         rust_sources: unquote(decoder_sources),
         callable_modules: [
-          KiwiCodec.RustlerGenerator.SkipValueHelpers,
+          KiwiCodec.RustlerGenerator.Skip.ValueHelpers,
           KiwiCodec.RustlerGenerator.UnknownFields
         ]
 

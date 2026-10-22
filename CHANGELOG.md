@@ -23,6 +23,11 @@
 - Sparse decoders intern their module and field-name atoms once instead of for
   every map they build, which took two thirds of the time decoding large files.
 - Require RustQ 1.0 for code generation.
+- Rename the Rustler generator's skip, sparse, and full decoder helpers by
+  family: `RustlerGenerator.SkipHelpers`, `SkipValueHelpers`, and
+  `SkipDescriptor` are `RustlerGenerator.Skip.Helpers`, `Skip.ValueHelpers`,
+  and `Skip.Descriptor`; `SparseHelpers` is `Sparse.Helpers`; and
+  `FullDecoderHelpers` is `Full.Helpers`.
 
 ## v0.3.1 - 2026-07-18
 

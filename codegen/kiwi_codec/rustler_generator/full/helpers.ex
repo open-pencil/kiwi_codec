@@ -1,4 +1,4 @@
-defmodule KiwiCodec.RustlerGenerator.FullDecoderHelpers do
+defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
   use RustQ.Meta,
     callable_modules: [
       RustQ.Rustler.Atom,

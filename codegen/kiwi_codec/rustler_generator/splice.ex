@@ -9,10 +9,9 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   """
 
   alias KiwiCodec.RustlerGenerator.AtomCache
-  alias KiwiCodec.RustlerGenerator.FullDecoderHelpers
-  alias KiwiCodec.RustlerGenerator.SkipHelpers
-  alias KiwiCodec.RustlerGenerator.SkipValueHelpers
-  alias KiwiCodec.RustlerGenerator.SparseHelpers
+  alias KiwiCodec.RustlerGenerator.Full
+  alias KiwiCodec.RustlerGenerator.Skip
+  alias KiwiCodec.RustlerGenerator.Sparse
   alias KiwiCodec.RustlerGenerator.UnknownFields
   alias RustQ.Rust.AST
   alias RustQ.Rustler.{Atom, Term}
@@ -60,7 +59,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp full_decoder_macro_fragments do
     [
-      FullDecoderHelpers.fragments([
+      Full.Helpers.fragments([
         :kiwi_enum_decoder,
         :kiwi_struct_decoder,
         :kiwi_message_decoder
@@ -74,7 +73,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
 
   defp skip_decoder_fragments(decoder_sources, shared?) do
     [
-      SkipHelpers.fragments(decoder_sources),
+      Skip.Helpers.fragments(decoder_sources),
       skip_decoder_dispatch(
         message_fields?: false,
         struct_fields?: false,
@@ -86,7 +85,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   end
 
   defp skip_decoder_helpers do
-    [SkipValueHelpers.fragments(), SkipValueHelpers.macro_fragments()]
+    [Skip.ValueHelpers.fragments(), Skip.ValueHelpers.macro_fragments()]
     |> List.flatten()
   end
 
@@ -95,7 +94,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     raw_message_macro? = Keyword.fetch!(opts, :raw_message_macro?)
 
     [
-      SkipValueHelpers.dispatch_fragments(),
+      Skip.ValueHelpers.dispatch_fragments(),
       skip_decoder_macros(raw_struct_macro?, raw_message_macro?)
     ]
     |> List.flatten()
@@ -108,7 +107,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         if(raw_message_macro?, do: :kiwi_skip_message_decoder, else: nil)
       ]
       |> Enum.reject(&is_nil/1)
-      |> then(&SkipValueHelpers.macro_fragments/1)
+      |> then(&Skip.ValueHelpers.macro_fragments/1)
 
     if raw_struct_macro? or raw_message_macro? do
       raw_macros
@@ -125,11 +124,11 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   defp sparse_decoder_fragments(decoder_sources, shared?, opts)
 
   defp sparse_decoder_fragments([], _shared?, _opts) do
-    SparseHelpers.fragments([], macros: sparse_helper_macros(false))
+    Sparse.Helpers.fragments([], macros: sparse_helper_macros(false))
   end
 
   defp sparse_decoder_fragments(decoder_sources, shared?, _opts) do
-    SparseHelpers.fragments(decoder_sources, macros: sparse_helper_macros(shared?))
+    Sparse.Helpers.fragments(decoder_sources, macros: sparse_helper_macros(shared?))
   end
 
   defp sparse_helper_macros(true),

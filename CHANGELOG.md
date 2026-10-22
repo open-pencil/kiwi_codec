@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.0 - 2026-10-22
 
 - Add the `:unknown_fields` Rustler generator option. `:runtime_schema` makes
   generated message decoders skip fields the compiled schema does not define,
@@ -13,7 +13,16 @@
 - Accept a `:schema` option in `KiwiCodec.decode/3` to skip message fields the
   generated modules do not define, using the schema the data was written with.
 - Add `KiwiCodec.SchemaInterpreter.skip_message_field/4`.
-- Require RustQ 1.0.0-rc.11 for code generation.
+- Add the `:records` Rustler generator feature. It decodes Kiwi data into
+  native records Rust code can read, change, and share without building Elixir
+  terms, then encodes them as the sparse maps generated decoders return,
+  optionally only some fields. Generated constants name each definition, field,
+  and enum value; records have typed getters and helpers that update nested
+  records and scalar, string, enum, and float-array fields. See
+  `KiwiCodec.RustlerGenerator.Records`.
+- Sparse decoders intern their module and field-name atoms once instead of for
+  every map they build, which took two thirds of the time decoding large files.
+- Require RustQ 1.0 for code generation.
 
 ## v0.3.1 - 2026-07-18
 

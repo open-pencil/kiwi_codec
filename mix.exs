@@ -1,7 +1,7 @@
 defmodule KiwiCodec.MixProject do
   use Mix.Project
 
-  @version "0.3.1"
+  @version "0.4.0"
   @source_url "https://github.com/open-pencil/kiwi_codec"
 
   def project do
@@ -60,7 +60,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 1.0.0-rc.11", only: [:dev, :test], runtime: false}
+    {:rustq, "~> 1.0", only: [:dev, :test], runtime: false}
   end
 
   defp package do

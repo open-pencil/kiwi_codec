@@ -42,7 +42,8 @@
   not propagated with `?`, its strings were read without `env`, and a float
   that is infinite or NaN raised instead of decoding to an atom.
 - Generating both sparse and skip decoders without `:decoder_sources` defined
-  `kiwi_skip_descriptor_kind` twice.
+  `kiwi_skip_descriptor_kind` twice, and skip decoders alone with
+  `:decoder_sources` called it without defining it.
 - A schema name that is not a Rust identifier fails where it is rendered,
   rather than having its other characters replaced with `_`, which could give
   two names the same Rust name.

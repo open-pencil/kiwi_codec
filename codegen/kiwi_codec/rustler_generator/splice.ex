@@ -42,7 +42,12 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     [
       if(:full in features, do: full_decoder_macro_fragments(), else: []),
       if(:skip in features,
-        do: skip_decoder_fragments(decoder_sources, shared_sparse_skip?(features, opts)),
+        do:
+          skip_decoder_fragments(
+            decoder_sources,
+            shared_sparse_skip?(features, opts),
+            :sparse in features
+          ),
         else: []
       ),
       if(:sparse in features or :records in features, do: AtomCache.fragments(), else: []),
@@ -66,44 +71,15 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     |> List.flatten()
   end
 
-  defp skip_decoder_fragments(decoder_sources, shared?) do
+  # Sparse helpers define `kiwi_skip_descriptor_kind` for themselves, so skip decoders bring
+  # it only without them. A shared sparse and skip descriptor replaces the skip message macro.
+  defp skip_decoder_fragments(decoder_sources, shared?, sparse?) do
     [
       Skip.Helpers.fragments(decoder_sources),
-      skip_decoder_dispatch(
-        message_fields?: false,
-        struct_fields?: false,
-        raw_struct_macro?: false,
-        raw_message_macro?: not shared?
-      )
+      Skip.ValueHelpers.dispatch_fragments(descriptor_kind?: not sparse?),
+      if(shared?, do: [], else: Skip.ValueHelpers.macro_fragments([:kiwi_skip_message_decoder]))
     ]
     |> List.flatten()
-  end
-
-  defp skip_decoder_dispatch(opts) do
-    raw_struct_macro? = Keyword.fetch!(opts, :raw_struct_macro?)
-    raw_message_macro? = Keyword.fetch!(opts, :raw_message_macro?)
-
-    [
-      Skip.ValueHelpers.dispatch_fragments(),
-      skip_decoder_macros(raw_struct_macro?, raw_message_macro?)
-    ]
-    |> List.flatten()
-  end
-
-  defp skip_decoder_macros(raw_struct_macro?, raw_message_macro?) do
-    raw_macros =
-      [
-        if(raw_struct_macro?, do: :kiwi_skip_struct_decoder, else: nil),
-        if(raw_message_macro?, do: :kiwi_skip_message_decoder, else: nil)
-      ]
-      |> Enum.reject(&is_nil/1)
-      |> then(&Skip.ValueHelpers.macro_fragments/1)
-
-    if raw_struct_macro? or raw_message_macro? do
-      raw_macros
-    else
-      []
-    end
   end
 
   defp shared_sparse_skip?(features, opts) do

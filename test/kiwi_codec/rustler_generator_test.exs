@@ -213,6 +213,7 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
         decoder_sources: [@runtime],
         unknown_fields: :runtime_schema
       ),
+      wrapped_crate("kiwi_skip", __MODULE__.SkipOnly, schema, features: [:skip]),
       wrapped_crate("kiwi_full_sparse", __MODULE__.FullSparse, schema,
         features: [:full, :sparse, :skip],
         decoder_sources: [@runtime]
@@ -336,8 +337,19 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
     test "reject unknown fields, truncated data, and trailing bytes" do
       binary = encode("Node", @node)
       unknown = encode("Node", Map.put(@node, "added", 1), @written_schema)
+      # A uint64 whose tenth byte holds more than the one bit left.
+      overflow = <<8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 2, 0>>
 
-      for bad <- [unknown, binary_part(binary, 0, byte_size(binary) - 1), binary <> <<0>>] do
+      assert_raise KiwiCodec.DecodeError, fn ->
+        KiwiCodec.decode(overflow, elixir_module("Node"))
+      end
+
+      for bad <- [
+            unknown,
+            overflow,
+            binary_part(binary, 0, byte_size(binary) - 1),
+            binary <> <<0>>
+          ] do
         assert_raise ArgumentError, fn -> nif(__MODULE__.Full, :decode_node, [bad]) end
       end
     end
@@ -358,7 +370,12 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
 
   describe "skip decoders" do
     test "consume exactly one value" do
-      for module <- [__MODULE__.SparseSkip, __MODULE__.Descriptor, __MODULE__.FullSparse],
+      for module <- [
+            __MODULE__.SkipOnly,
+            __MODULE__.SparseSkip,
+            __MODULE__.Descriptor,
+            __MODULE__.FullSparse
+          ],
           {definition, value} <- samples() do
         nif = :"skip_#{Macro.underscore(definition)}"
         assert nif(module, nif, [encode(definition, value), ""]) == :ok

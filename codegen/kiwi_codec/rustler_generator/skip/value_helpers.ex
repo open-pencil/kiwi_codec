@@ -19,24 +19,6 @@ defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
     :kiwi_skip_kind
   ]
 
-  @functions [
-    :kiwi_skip_bool_value,
-    :kiwi_skip_byte_value,
-    :kiwi_skip_float_value,
-    :kiwi_skip_int_value,
-    :kiwi_skip_int64_value,
-    :kiwi_skip_string_value,
-    :kiwi_skip_uint_value,
-    :kiwi_skip_uint64_value,
-    :kiwi_skip_bytes_value,
-    :kiwi_skip_repeated,
-    :kiwi_skip_descriptor_kind,
-    :kiwi_skip_kind,
-    :kiwi_skip_struct_fields,
-    :kiwi_skip_struct_fields_remaining,
-    :kiwi_skip_message_fields
-  ]
-
   @typedoc "The Rust `KiwiSkipFn`: skips one value of a type."
   @type kiwi_skip_fn :: R.raw(:"fn(&mut Decoder<'_>) -> NifResult<()>")
 
@@ -50,19 +32,23 @@ defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
           required(:kind) => kiwi_skip_kind()
         }
 
-  @spec fragments() :: [RustQ.Rust.Fragment.t()]
-  def fragments do
-    __MODULE__.__rustq_type_items__() ++ MetaAST.functions!(__MODULE__, @functions)
-  end
-
   @spec macro_fragments([atom()]) :: [RustQ.Rust.Fragment.t()]
   def macro_fragments(names \\ @macros) do
     MetaAST.macro_items!(__MODULE__, names)
   end
 
-  @spec dispatch_fragments() :: [RustQ.Rust.Fragment.t()]
-  def dispatch_fragments do
-    MetaAST.functions!(__MODULE__, @dispatch_functions)
+  @doc """
+  Returns `kiwi_skip_kind`, which skips a message field's value, and with
+  `descriptor_kind?: true` also `kiwi_skip_descriptor_kind`, which skip message macros call.
+  """
+  @spec dispatch_fragments(keyword()) :: [RustQ.Rust.Fragment.t()]
+  def dispatch_fragments(opts \\ []) do
+    functions =
+      if Keyword.get(opts, :descriptor_kind?, false),
+        do: [:kiwi_skip_descriptor_kind | @dispatch_functions],
+        else: @dispatch_functions
+
+    MetaAST.functions!(__MODULE__, functions)
   end
 
   defrustmacro kiwi_skip_struct_decoder(

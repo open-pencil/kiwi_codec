@@ -34,12 +34,10 @@ defmodule KiwiCodec.Schema.Tokenizer do
     do: take(text, :identifier, take_while(text, &identifier_char?(&1)), line, column, tokens)
 
   defp tokenize(<<char, _::binary>> = text, line, column, tokens) when char in ?0..?9,
-    do: integer(text, "", line, column, tokens)
+    do: integer(text, 0, line, column, tokens)
 
-  defp tokenize(<<?-, char, _::binary>> = text, line, column, tokens) when char in ?0..?9 do
-    <<?-, digits::binary>> = text
-    integer(digits, "-", line, column, tokens)
-  end
+  defp tokenize(<<?-, char, _::binary>> = text, line, column, tokens) when char in ?0..?9,
+    do: integer(text, 1, line, column, tokens)
 
   defp tokenize(text, line, column, tokens) do
     case Enum.find(@symbols, &String.starts_with?(text, &1)) do
@@ -49,12 +47,15 @@ defmodule KiwiCodec.Schema.Tokenizer do
   end
 
   # An integer ends at a word boundary, so `12ab` is not an integer followed by a name.
-  defp integer(text, sign, line, column, tokens) do
-    digits = take_while(text, &(&1 in ?0..?9))
+  defp integer(text, sign_size, line, column, tokens) do
+    size = span(text, &(&1 in ?0..?9), sign_size)
 
-    case binary_part(text, byte_size(digits), byte_size(text) - byte_size(digits)) do
-      <<char, _::binary>> when identifier_char?(char) -> unexpected!(sign <> text, line, column)
-      _rest -> take(sign <> text, :integer, sign <> digits, line, column, tokens)
+    case text do
+      <<_::binary-size(^size), char, _::binary>> when identifier_char?(char) ->
+        unexpected!(text, line, column)
+
+      _rest ->
+        take(text, :integer, binary_part(text, 0, size), line, column, tokens)
     end
   end
 

@@ -65,6 +65,10 @@ impl<'a> Decoder<'a> {
         let mut result = 0u64;
         for shift in (0..64).step_by(7) {
             let byte = self.read_byte()?;
+            // The tenth byte has room for only the one bit left.
+            if shift == 63 && byte & 0x7f > 1 {
+                return Err(Error::BadArg);
+            }
             result |= ((byte & 0x7f) as u64) << shift;
             if byte < 0x80 {
                 return Ok(result);

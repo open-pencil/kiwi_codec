@@ -1,121 +1,126 @@
-defmodule KiwiCodec.RustlerGenerator.Skip do
-  @moduledoc """
-  Generates generic Kiwi schema skip decoders for Rustler native backends.
-
-  Skip decoders consume encoded values without allocating decoded Elixir terms.
-  They are schema-generic and intended for callers that project only selected
-  fields from a Kiwi payload.
-  """
-
-  alias KiwiCodec.RustlerGenerator.Name
-  alias __MODULE__.Descriptor
-  alias __MODULE__.ValueHelpers
-  alias KiwiCodec.Schema.Enum, as: SchemaEnum
-  alias KiwiCodec.Schema.{Message, Struct}
-  alias RustQ.Meta.AST, as: MetaAST
-  alias RustQ.Rust.AST
-  alias RustQ.Rust.AST.Builder, as: A
-  alias RustQ.Rust.AST.PatternBuilder, as: P
-
-  defmodule Kind do
+if Code.ensure_loaded?(RustQ) do
+  defmodule KiwiCodec.RustlerGenerator.Skip do
     @moduledoc """
-    Semantic skip operation for one Kiwi field value.
+    Generates generic Kiwi schema skip decoders for Rustler native backends.
+
+    Skip decoders consume encoded values without allocating decoded Elixir terms.
+    They are schema-generic and intended for callers that project only selected
+    fields from a Kiwi payload.
     """
 
-    @enforce_keys [:mode, :function]
-    defstruct [:mode, :function]
+    alias KiwiCodec.RustlerGenerator.Name
+    alias __MODULE__.Descriptor
+    alias __MODULE__.ValueHelpers
+    alias KiwiCodec.Schema.Enum, as: SchemaEnum
+    alias KiwiCodec.Schema.{Message, Struct}
+    alias RustQ.Meta.AST, as: MetaAST
+    alias RustQ.Rust.AST
+    alias RustQ.Rust.AST.Builder, as: A
+    alias RustQ.Rust.AST.PatternBuilder, as: P
 
-    @type mode :: :one | :repeated | :bytes
-    @type t :: %__MODULE__{mode: mode(), function: atom()}
-  end
+    defmodule Kind do
+      @moduledoc """
+      Semantic skip operation for one Kiwi field value.
+      """
 
-  @spec fragments([KiwiCodec.Schema.definition()], map(), keyword()) :: [RustQ.Rust.Fragment.t()]
-  def fragments(definitions, definition_map, opts \\ []) do
-    messages? = Keyword.get(opts, :messages?, true)
-    Enum.map(definitions, &definition(&1, definition_map, messages?))
-  end
+      @enforce_keys [:mode, :function]
+      defstruct [:mode, :function]
 
-  @spec message_arm(map(), map()) :: AST.Arm.t()
-  def message_arm(field, definition_map) do
-    %AST.Arm{
-      pattern: P.lit(field.id),
-      body: [A.return_stmt(skip_call(field, definition_map))]
-    }
-  end
+      @type mode :: :one | :repeated | :bytes
+      @type t :: %__MODULE__{mode: mode(), function: atom()}
+    end
 
-  defp definition(definition, definition_map, messages?)
-  defp definition(%SchemaEnum{}, _definition_map, _messages?), do: []
+    @spec fragments([KiwiCodec.Schema.definition()], map(), keyword()) :: [
+            RustQ.Rust.Fragment.t()
+          ]
+    def fragments(definitions, definition_map, opts \\ []) do
+      messages? = Keyword.get(opts, :messages?, true)
+      Enum.map(definitions, &definition(&1, definition_map, messages?))
+    end
 
-  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?) do
-    MetaAST.macro_call!(ValueHelpers, :kiwi_skip_struct_decoder,
-      fn: skip_function_name(name),
-      decoder: :decoder,
-      fields: skip_descriptor_rows(fields, definition_map)
-    )
-  end
+    @spec message_arm(map(), map()) :: AST.Arm.t()
+    def message_arm(field, definition_map) do
+      %AST.Arm{
+        pattern: P.lit(field.id),
+        body: [A.return_stmt(skip_call(field, definition_map))]
+      }
+    end
 
-  defp definition(%Message{}, _definition_map, false), do: []
+    defp definition(definition, definition_map, messages?)
+    defp definition(%SchemaEnum{}, _definition_map, _messages?), do: []
 
-  defp definition(%Message{name: name, fields: fields}, definition_map, true) do
-    MetaAST.macro_call!(ValueHelpers, :kiwi_skip_message_decoder,
-      fn: skip_function_name(name),
-      decoder: :decoder,
-      definition: name,
-      fields: skip_message_descriptor_rows(fields, definition_map)
-    )
-  end
+    defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?) do
+      MetaAST.macro_call!(ValueHelpers, :kiwi_skip_struct_decoder,
+        fn: skip_function_name(name),
+        decoder: :decoder,
+        fields: skip_descriptor_rows(fields, definition_map)
+      )
+    end
 
-  defp skip_message_descriptor_rows(fields, definition_map) do
-    Enum.map(fields, fn field ->
+    defp definition(%Message{}, _definition_map, false), do: []
+
+    defp definition(%Message{name: name, fields: fields}, definition_map, true) do
+      MetaAST.macro_call!(ValueHelpers, :kiwi_skip_message_decoder,
+        fn: skip_function_name(name),
+        decoder: :decoder,
+        definition: name,
+        fields: skip_message_descriptor_rows(fields, definition_map)
+      )
+    end
+
+    defp skip_message_descriptor_rows(fields, definition_map) do
+      Enum.map(fields, fn field ->
+        field
+        |> skip_descriptor_row(definition_map)
+        |> Keyword.put(:field_id, field.id)
+      end)
+    end
+
+    defp skip_descriptor_rows(fields, definition_map) do
+      Enum.map(fields, &skip_descriptor_row(&1, definition_map))
+    end
+
+    defp skip_descriptor_row(field, definition_map) do
+      kind = skip_kind(field, definition_map)
+
+      [
+        field_repeated: match?(%Kind{mode: :repeated}, kind),
+        field_bytes: match?(%Kind{mode: :bytes}, kind),
+        field_skip: kind.function
+      ]
+    end
+
+    defp skip_call(field, definition_map) do
       field
-      |> skip_descriptor_row(definition_map)
-      |> Keyword.put(:field_id, field.id)
-    end)
+      |> skip_kind(definition_map)
+      |> skip_kind_call()
+    end
+
+    defp skip_function_name(name), do: ["skip_", Name.rust_identifier(name), "_from_decoder"]
+
+    defp skip_kind(%{array?: true, type: "byte"}, _definition_map),
+      do: %Kind{mode: :bytes, function: :kiwi_skip_bytes_value}
+
+    defp skip_kind(%{array?: true, type: type}, definition_map) do
+      %Kind{mode: :repeated, function: scalar_skip_function(type, definition_map)}
+    end
+
+    defp skip_kind(%{type: type}, definition_map) do
+      %Kind{mode: :one, function: scalar_skip_function(type, definition_map)}
+    end
+
+    defp skip_kind_call(%Kind{mode: :bytes}),
+      do: A.try(A.call(:kiwi_skip_bytes_value, [:decoder]))
+
+    defp skip_kind_call(%Kind{mode: :repeated, function: function}) do
+      A.try(A.call(:kiwi_skip_repeated, [A.var(:decoder), A.path(function)]))
+    end
+
+    defp skip_kind_call(%Kind{mode: :one, function: function}) do
+      A.try(A.call(function, [:decoder]))
+    end
+
+    defp scalar_skip_function(type, definition_map),
+      do: Descriptor.scalar_function(type, definition_map)
   end
-
-  defp skip_descriptor_rows(fields, definition_map) do
-    Enum.map(fields, &skip_descriptor_row(&1, definition_map))
-  end
-
-  defp skip_descriptor_row(field, definition_map) do
-    kind = skip_kind(field, definition_map)
-
-    [
-      field_repeated: match?(%Kind{mode: :repeated}, kind),
-      field_bytes: match?(%Kind{mode: :bytes}, kind),
-      field_skip: kind.function
-    ]
-  end
-
-  defp skip_call(field, definition_map) do
-    field
-    |> skip_kind(definition_map)
-    |> skip_kind_call()
-  end
-
-  defp skip_function_name(name), do: ["skip_", Name.rust_identifier(name), "_from_decoder"]
-
-  defp skip_kind(%{array?: true, type: "byte"}, _definition_map),
-    do: %Kind{mode: :bytes, function: :kiwi_skip_bytes_value}
-
-  defp skip_kind(%{array?: true, type: type}, definition_map) do
-    %Kind{mode: :repeated, function: scalar_skip_function(type, definition_map)}
-  end
-
-  defp skip_kind(%{type: type}, definition_map) do
-    %Kind{mode: :one, function: scalar_skip_function(type, definition_map)}
-  end
-
-  defp skip_kind_call(%Kind{mode: :bytes}), do: A.try(A.call(:kiwi_skip_bytes_value, [:decoder]))
-
-  defp skip_kind_call(%Kind{mode: :repeated, function: function}) do
-    A.try(A.call(:kiwi_skip_repeated, [A.var(:decoder), A.path(function)]))
-  end
-
-  defp skip_kind_call(%Kind{mode: :one, function: function}) do
-    A.try(A.call(function, [:decoder]))
-  end
-
-  defp scalar_skip_function(type, definition_map),
-    do: Descriptor.scalar_function(type, definition_map)
 end

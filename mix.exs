@@ -29,9 +29,10 @@ defmodule KiwiCodec.MixProject do
     [extra_applications: [:logger]]
   end
 
+  # The Rustler generator under codegen/ compiles only where RustQ, an optional dependency,
+  # is available, such as a consumer's development and test builds.
   defp elixirc_paths(:test), do: ["lib", "codegen", "test/support"]
-  defp elixirc_paths(:dev), do: ["lib", "codegen"]
-  defp elixirc_paths(_env), do: ["lib"]
+  defp elixirc_paths(_env), do: ["lib", "codegen"]
 
   defp aliases do
     [
@@ -61,7 +62,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 1.0.0-rc.14", only: [:dev, :test], runtime: false}
+    {:rustq, "~> 1.0.0-rc.14", optional: true, runtime: false}
   end
 
   defp package do
@@ -128,6 +129,7 @@ defmodule KiwiCodec.MixProject do
       ],
       "Rustler generation": [
         KiwiCodec.RustlerGenerator,
+        KiwiCodec.RustlerGenerator.Decoder,
         KiwiCodec.RustlerGenerator.Records,
         KiwiCodec.RustlerGenerator.UnknownFields,
         KiwiCodec.RustlerGenerator.Skip,

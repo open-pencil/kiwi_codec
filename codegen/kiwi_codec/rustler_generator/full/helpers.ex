@@ -1,355 +1,357 @@
-defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
-  use RustQ.Meta,
-    rust_sources: [KiwiCodec.RustlerGenerator.Decoder.source()],
-    callable_modules: [
-      RustQ.Rustler.Atom,
-      RustQ.Rustler.Term,
-      KiwiCodec.RustlerGenerator.UnknownFields
+if Code.ensure_loaded?(RustQ) do
+  defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
+    use RustQ.Meta,
+      rust_sources: [KiwiCodec.RustlerGenerator.Decoder.source()],
+      callable_modules: [
+        RustQ.Rustler.Atom,
+        RustQ.Rustler.Term,
+        KiwiCodec.RustlerGenerator.UnknownFields
+      ]
+
+    @moduledoc """
+    RustQ-authored full Kiwi decoder macro helpers.
+    """
+
+    alias RustQ.Meta.AST, as: MetaAST
+    alias RustQ.Type, as: R
+
+    @macros [
+      :kiwi_enum_decoder,
+      :kiwi_struct_decoder,
+      :kiwi_message_decoder
     ]
 
-  @moduledoc """
-  RustQ-authored full Kiwi decoder macro helpers.
-  """
+    @functions [
+      :kiwi_enum_value,
+      :kiwi_full_bool_value,
+      :kiwi_full_byte_value,
+      :kiwi_full_float_value,
+      :kiwi_full_int_value,
+      :kiwi_full_int64_value,
+      :kiwi_full_string_value,
+      :kiwi_full_uint_value,
+      :kiwi_full_uint64_value,
+      :kiwi_full_bytes_value,
+      :kiwi_message_fields,
+      :kiwi_full_field_value
+    ]
 
-  alias RustQ.Meta.AST, as: MetaAST
-  alias RustQ.Type, as: R
+    @typedoc "The Rust `KiwiFullDecodeFn`: decodes one value of a type into a term."
+    @type kiwi_full_decode_fn ::
+            R.raw(:"for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>")
 
-  @macros [
-    :kiwi_enum_decoder,
-    :kiwi_struct_decoder,
-    :kiwi_message_decoder
-  ]
+    @typedoc """
+    The Rust `KiwiFullField`: a message field id, its index among the struct's values, and how to
+    decode it.
+    """
+    @type kiwi_full_field :: %{
+            required(:id) => R.u32(),
+            required(:index) => R.usize(),
+            required(:repeated) => R.bool(),
+            required(:decode) => kiwi_full_decode_fn()
+          }
 
-  @functions [
-    :kiwi_enum_value,
-    :kiwi_full_bool_value,
-    :kiwi_full_byte_value,
-    :kiwi_full_float_value,
-    :kiwi_full_int_value,
-    :kiwi_full_int64_value,
-    :kiwi_full_string_value,
-    :kiwi_full_uint_value,
-    :kiwi_full_uint64_value,
-    :kiwi_full_bytes_value,
-    :kiwi_message_fields,
-    :kiwi_full_field_value
-  ]
+    @typedoc "The Rust `KiwiEnumVariant`: an enum value and the atom name it decodes to."
+    @type kiwi_enum_variant :: %{
+            required(:value) => R.u32(),
+            required(:name) => R.raw(:"&'static str")
+          }
 
-  @typedoc "The Rust `KiwiFullDecodeFn`: decodes one value of a type into a term."
-  @type kiwi_full_decode_fn ::
-          R.raw(:"for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>")
+    @spec fragments([atom()]) :: [RustQ.Rust.Fragment.t()]
+    def fragments(macros \\ @macros) do
+      __MODULE__.__rustq_type_items__() ++
+        MetaAST.macro_items!(__MODULE__, macros) ++ MetaAST.functions!(__MODULE__, @functions)
+    end
 
-  @typedoc """
-  The Rust `KiwiFullField`: a message field id, its index among the struct's values, and how to
-  decode it.
-  """
-  @type kiwi_full_field :: %{
-          required(:id) => R.u32(),
-          required(:index) => R.usize(),
-          required(:repeated) => R.bool(),
-          required(:decode) => kiwi_full_decode_fn()
-        }
+    @spec macro_call(atom(), keyword()) :: RustQ.Rust.Fragment.t()
+    def macro_call(name, args), do: MetaAST.macro_call!(__MODULE__, name, args)
 
-  @typedoc "The Rust `KiwiEnumVariant`: an enum value and the atom name it decodes to."
-  @type kiwi_enum_variant :: %{
-          required(:value) => R.u32(),
-          required(:name) => R.raw(:"&'static str")
-        }
+    defrustmacro kiwi_struct_decoder(
+                   fn: name(:ident),
+                   env: env(:ident),
+                   decoder: decoder(:ident),
+                   module_static: module_static(:ident),
+                   keys_static: keys_static(:ident),
+                   module: module_name(:literal),
+                   keys:
+                     repeat do
+                       key(:literal)
+                     end,
+                   fields:
+                     repeat do
+                       field_expr(:expr)
+                     end
+                 ) do
+      @spec name(R.path(:Env, R.lifetime(:a)), R.mut_ref(R.path(:Decoder, R.lifetime(:_)))) ::
+              R.nif_result(term())
+      defrust name(env, decoder) do
+        module_atom = cached_atom(env, ref(module_static), module_name)
 
-  @spec fragments([atom()]) :: [RustQ.Rust.Fragment.t()]
-  def fragments(macros \\ @macros) do
-    __MODULE__.__rustq_type_items__() ++
-      MetaAST.macro_items!(__MODULE__, macros) ++ MetaAST.functions!(__MODULE__, @functions)
-  end
+        keys =
+          cached_struct_keys(
+            env,
+            ref(keys_static),
+            ref(
+              array([
+                repeat keys do
+                  key
+                end
+              ])
+            )
+          )
 
-  @spec macro_call(atom(), keyword()) :: RustQ.Rust.Fragment.t()
-  def macro_call(name, args), do: MetaAST.macro_call!(__MODULE__, name, args)
-
-  defrustmacro kiwi_struct_decoder(
-                 fn: name(:ident),
-                 env: env(:ident),
-                 decoder: decoder(:ident),
-                 module_static: module_static(:ident),
-                 keys_static: keys_static(:ident),
-                 module: module_name(:literal),
-                 keys:
-                   repeat do
-                     key(:literal)
-                   end,
-                 fields:
-                   repeat do
-                     field_expr(:expr)
-                   end
-               ) do
-    @spec name(R.path(:Env, R.lifetime(:a)), R.mut_ref(R.path(:Decoder, R.lifetime(:_)))) ::
-            R.nif_result(term())
-    defrust name(env, decoder) do
-      module_atom = cached_atom(env, ref(module_static), module_name)
-
-      keys =
-        cached_struct_keys(
+        make_struct_from_arrays(
           env,
-          ref(keys_static),
+          keys,
           ref(
             array([
-              repeat keys do
-                key
+              module_atom.to_term(env),
+              repeat fields do
+                field_expr.encode(env)
               end
             ])
           )
         )
+      end
+    end
 
-      make_struct_from_arrays(
-        env,
-        keys,
-        ref(
+    defrustmacro kiwi_message_decoder(
+                   fn: decoder_name(:ident),
+                   fields_fn: fields_name(:ident),
+                   env: env(:ident),
+                   decoder: decoder(:ident),
+                   module_static: module_static(:ident),
+                   keys_static: keys_static(:ident),
+                   module: module_name(:literal),
+                   definition: definition_name(:literal),
+                   keys:
+                     repeat do
+                       key(:literal)
+                     end,
+                   fields:
+                     repeat do
+                       field_id(:literal)
+                       field_index(:literal)
+                       field_repeated(:literal)
+                       field_decode(:ident)
+                     end
+                 ) do
+      @spec decoder_name(
+              R.path(:Env, R.lifetime(:a)),
+              R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+            ) :: R.nif_result(term())
+      defrust decoder_name(env, decoder) do
+        module_atom = cached_atom(env, ref(module_static), module_name)
+
+        keys =
+          cached_struct_keys(
+            env,
+            ref(keys_static),
+            ref(
+              array([
+                repeat keys do
+                  key
+                end
+              ])
+            )
+          )
+
+        values = default_struct_values(env, module_atom, keys.len() - 1)
+        fields_name(env, decoder, keys, values)
+      end
+
+      @spec fields_name(
+              R.path(:Env, R.lifetime(:a)),
+              R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+              R.slice(R.path(:Atom)),
+              R.vec(term())
+            ) :: R.nif_result(term())
+      defrust fields_name(env, decoder, struct_keys, struct_values) do
+        kiwi_message_fields(
+          env,
+          decoder,
+          definition_name,
+          struct_keys,
+          struct_values,
           array([
-            module_atom.to_term(env),
             repeat fields do
-              field_expr.encode(env)
+              struct_literal(KiwiFullField,
+                id: field_id,
+                index: field_index,
+                repeated: field_repeated,
+                decode: field_decode
+              )
             end
           ])
         )
-      )
+      end
     end
-  end
 
-  defrustmacro kiwi_message_decoder(
-                 fn: decoder_name(:ident),
-                 fields_fn: fields_name(:ident),
-                 env: env(:ident),
-                 decoder: decoder(:ident),
-                 module_static: module_static(:ident),
-                 keys_static: keys_static(:ident),
-                 module: module_name(:literal),
-                 definition: definition_name(:literal),
-                 keys:
-                   repeat do
-                     key(:literal)
-                   end,
-                 fields:
-                   repeat do
-                     field_id(:literal)
-                     field_index(:literal)
-                     field_repeated(:literal)
-                     field_decode(:ident)
-                   end
-               ) do
-    @spec decoder_name(
+    defrustmacro kiwi_enum_decoder(
+                   fn: name(:ident),
+                   env: env(:ident),
+                   decoder: decoder(:ident),
+                   variants:
+                     repeat do
+                       variant_value(:literal)
+                       variant_name(:literal)
+                     end
+                 ) do
+      @spec name(R.path(:Env, R.lifetime(:a)), R.mut_ref(R.path(:Decoder, R.lifetime(:_)))) ::
+              R.nif_result(term())
+      defrust name(env, decoder) do
+        kiwi_enum_value(
+          env,
+          decoder,
+          array([
+            repeat variants do
+              struct_literal(KiwiEnumVariant,
+                value: variant_value,
+                name: variant_name
+              )
+            end
+          ])
+        )
+      end
+    end
+
+    @spec kiwi_full_bool_value(
             R.path(:Env, R.lifetime(:a)),
             R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
           ) :: R.nif_result(term())
-    defrust decoder_name(env, decoder) do
-      module_atom = cached_atom(env, ref(module_static), module_name)
-
-      keys =
-        cached_struct_keys(
-          env,
-          ref(keys_static),
-          ref(
-            array([
-              repeat keys do
-                key
-              end
-            ])
-          )
-        )
-
-      values = default_struct_values(env, module_atom, keys.len() - 1)
-      fields_name(env, decoder, keys, values)
+    defrust kiwi_full_bool_value(env, decoder) do
+      value = decoder.read_bool()
+      {:ok, value.encode(env)}
     end
 
-    @spec fields_name(
+    @spec kiwi_full_byte_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_byte_value(env, decoder) do
+      value = decoder.read_byte()
+      {:ok, value.encode(env)}
+    end
+
+    @spec kiwi_full_float_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_float_value(env, decoder) do
+      decoder.read_var_float(env)
+    end
+
+    @spec kiwi_full_int_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_int_value(env, decoder) do
+      value = decoder.read_var_int()
+      {:ok, value.encode(env)}
+    end
+
+    @spec kiwi_full_int64_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_int64_value(env, decoder) do
+      value = decoder.read_var_int64()
+      {:ok, value.encode(env)}
+    end
+
+    @spec kiwi_full_string_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_string_value(env, decoder) do
+      decoder.read_string(env)
+    end
+
+    @spec kiwi_full_uint_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_uint_value(env, decoder) do
+      value = decoder.read_var_uint()
+      {:ok, value.encode(env)}
+    end
+
+    @spec kiwi_full_uint64_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_uint64_value(env, decoder) do
+      value = decoder.read_var_uint64()
+      {:ok, value.encode(env)}
+    end
+
+    @spec kiwi_full_bytes_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_bytes_value(env, decoder) do
+      decoder.read_byte_array(env)
+    end
+
+    @spec kiwi_message_fields(
             R.path(:Env, R.lifetime(:a)),
             R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+            R.str(),
             R.slice(R.path(:Atom)),
-            R.vec(term())
+            R.vec(term()),
+            R.slice(R.path(:KiwiFullField))
           ) :: R.nif_result(term())
-    defrust fields_name(env, decoder, struct_keys, struct_values) do
-      kiwi_message_fields(
-        env,
-        decoder,
-        definition_name,
-        struct_keys,
-        struct_values,
-        array([
-          repeat fields do
-            struct_literal(KiwiFullField,
-              id: field_id,
-              index: field_index,
-              repeated: field_repeated,
-              decode: field_decode
-            )
-          end
-        ])
-      )
-    end
-  end
+    defrust kiwi_message_fields(env, decoder, definition_name, keys, values, fields) do
+      field_id = decoder.read_var_uint()
 
-  defrustmacro kiwi_enum_decoder(
-                 fn: name(:ident),
-                 env: env(:ident),
-                 decoder: decoder(:ident),
-                 variants:
-                   repeat do
-                     variant_value(:literal)
-                     variant_name(:literal)
-                   end
-               ) do
-    @spec name(R.path(:Env, R.lifetime(:a)), R.mut_ref(R.path(:Decoder, R.lifetime(:_)))) ::
-            R.nif_result(term())
-    defrust name(env, decoder) do
-      kiwi_enum_value(
-        env,
-        decoder,
-        array([
-          repeat variants do
-            struct_literal(KiwiEnumVariant,
-              value: variant_value,
-              name: variant_name
-            )
-          end
-        ])
-      )
-    end
-  end
+      if field_id == 0 do
+        make_struct_from_arrays(env, keys, ref(values))
+      else
+        case fields.binary_search_by_key(field_id, fn field -> field.id end) do
+          {:ok, index} ->
+            field = fields.get(index).unwrap()
+            assign!(index(values, field.index), kiwi_full_field_value(env, decoder, field))
+            kiwi_message_fields(env, decoder, definition_name, keys, values, fields)
 
-  @spec kiwi_full_bool_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_bool_value(env, decoder) do
-    value = decoder.read_bool()
-    {:ok, value.encode(env)}
-  end
-
-  @spec kiwi_full_byte_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_byte_value(env, decoder) do
-    value = decoder.read_byte()
-    {:ok, value.encode(env)}
-  end
-
-  @spec kiwi_full_float_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_float_value(env, decoder) do
-    decoder.read_var_float(env)
-  end
-
-  @spec kiwi_full_int_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_int_value(env, decoder) do
-    value = decoder.read_var_int()
-    {:ok, value.encode(env)}
-  end
-
-  @spec kiwi_full_int64_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_int64_value(env, decoder) do
-    value = decoder.read_var_int64()
-    {:ok, value.encode(env)}
-  end
-
-  @spec kiwi_full_string_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_string_value(env, decoder) do
-    decoder.read_string(env)
-  end
-
-  @spec kiwi_full_uint_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_uint_value(env, decoder) do
-    value = decoder.read_var_uint()
-    {:ok, value.encode(env)}
-  end
-
-  @spec kiwi_full_uint64_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_uint64_value(env, decoder) do
-    value = decoder.read_var_uint64()
-    {:ok, value.encode(env)}
-  end
-
-  @spec kiwi_full_bytes_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_bytes_value(env, decoder) do
-    decoder.read_byte_array(env)
-  end
-
-  @spec kiwi_message_fields(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
-          R.str(),
-          R.slice(R.path(:Atom)),
-          R.vec(term()),
-          R.slice(R.path(:KiwiFullField))
-        ) :: R.nif_result(term())
-  defrust kiwi_message_fields(env, decoder, definition_name, keys, values, fields) do
-    field_id = decoder.read_var_uint()
-
-    if field_id == 0 do
-      make_struct_from_arrays(env, keys, ref(values))
-    else
-      case fields.binary_search_by_key(field_id, fn field -> field.id end) do
-        {:ok, index} ->
-          field = fields.get(index).unwrap()
-          assign!(index(values, field.index), kiwi_full_field_value(env, decoder, field))
-          kiwi_message_fields(env, decoder, definition_name, keys, values, fields)
-
-        {:error, _index} ->
-          kiwi_unknown_field(decoder, definition_name, field_id)
-          kiwi_message_fields(env, decoder, definition_name, keys, values, fields)
+          {:error, _index} ->
+            kiwi_unknown_field(decoder, definition_name, field_id)
+            kiwi_message_fields(env, decoder, definition_name, keys, values, fields)
+        end
       end
     end
-  end
 
-  @spec kiwi_full_field_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
-          R.ref(R.path(:KiwiFullField))
-        ) :: R.nif_result(term())
-  defrust kiwi_full_field_value(env, decoder, field) do
-    decode = field.decode
+    @spec kiwi_full_field_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+            R.ref(R.path(:KiwiFullField))
+          ) :: R.nif_result(term())
+    defrust kiwi_full_field_value(env, decoder, field) do
+      decode = field.decode
 
-    if field.repeated do
-      values = decoder.read_repeated(fn decoder -> decode(env, decoder) end)
-      {:ok, values.encode(env)}
-    else
-      decode(env, decoder)
+      if field.repeated do
+        values = decoder.read_repeated(fn decoder -> decode(env, decoder) end)
+        {:ok, values.encode(env)}
+      else
+        decode(env, decoder)
+      end
     end
-  end
 
-  @spec kiwi_enum_value(
-          R.path(:Env, R.lifetime(:a)),
-          R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
-          R.slice(R.path(:KiwiEnumVariant))
-        ) :: R.nif_result(term())
-  defrust kiwi_enum_value(env, decoder, variants) do
-    value = decoder.read_var_uint()
+    @spec kiwi_enum_value(
+            R.path(:Env, R.lifetime(:a)),
+            R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
+            R.slice(R.path(:KiwiEnumVariant))
+          ) :: R.nif_result(term())
+    defrust kiwi_enum_value(env, decoder, variants) do
+      value = decoder.read_var_uint()
 
-    case variants.binary_search_by_key(value, fn variant -> variant.value end) do
-      {:ok, index} ->
-        variant = variants.get(index).unwrap()
-        {:ok, Atom.from_str(env, variant.name).unwrap().encode(env)}
+      case variants.binary_search_by_key(value, fn variant -> variant.value end) do
+        {:ok, index} ->
+          variant = variants.get(index).unwrap()
+          {:ok, Atom.from_str(env, variant.name).unwrap().encode(env)}
 
-      {:error, _index} ->
-        {:ok, value.encode(env)}
+        {:error, _index} ->
+          {:ok, value.encode(env)}
+      end
     end
   end
 end

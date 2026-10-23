@@ -8,6 +8,10 @@
   decoders read with, and ships `decoder.rs`, a complete one. The generator
   reads its method signatures unless `:decoder_sources` names another
   `Decoder`, so every feature knows which reads return a `NifResult`.
+- Projects that depend on KiwiCodec can use `KiwiCodec.RustlerGenerator`.
+  RustQ is an optional dependency, and the generator compiles wherever it is
+  available, such as a project's development and test builds; it used to
+  compile only in KiwiCodec's own, so projects loaded its sources themselves.
 - `KiwiCodec.Schema.Token` has a `kind`: `:identifier`, `:integer`,
   `:symbol`, or `:eof`.
 

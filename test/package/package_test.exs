@@ -9,13 +9,13 @@ defmodule KiwiCodec.PackageTest do
     assert "guides" in files
   end
 
-  test "limits RustQ to development and test compilation" do
+  test "makes RustQ optional, for consumers that generate Rust" do
     {_app, _requirement, opts} =
       Mix.Project.config()
       |> Keyword.fetch!(:deps)
       |> Enum.find(&(elem(&1, 0) == :rustq))
 
-    assert Keyword.fetch!(opts, :only) == [:dev, :test]
+    assert Keyword.fetch!(opts, :optional)
     refute Keyword.get(opts, :runtime, true)
   end
 end

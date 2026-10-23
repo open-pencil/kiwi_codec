@@ -13,6 +13,7 @@ defmodule KiwiCodec.RustlerGenerator do
 
   alias KiwiCodec.RustlerGenerator.Definition
   alias KiwiCodec.RustlerGenerator.Entrypoint
+  alias KiwiCodec.RustlerGenerator.Records
   alias KiwiCodec.RustlerGenerator.Selection
   alias KiwiCodec.RustlerGenerator.Skip
   alias KiwiCodec.RustlerGenerator.Sparse
@@ -54,7 +55,13 @@ defmodule KiwiCodec.RustlerGenerator do
       `defrust` and RustQ uses the real decoder method metadata for propagation.
     * `:features` - decoder families to generate. Defaults to `[:full]`.
       Use `:sparse` and `:skip` for generic sparse map decoders and skip
-      helpers used by projection-oriented native backends.
+      helpers used by projection-oriented native backends, and `:records` for
+      native records Rust code can work with before encoding them; see
+      `KiwiCodec.RustlerGenerator.Records`.
+    * `:unknown_fields` - how message decoders handle fields the schema does
+      not define: `:error` (default) rejects the data; `:runtime_schema` skips
+      them using a schema read with the data. See
+      `KiwiCodec.RustlerGenerator.UnknownFields` for the `Decoder` contract.
     * `:sparse_messages` - sparse message generation strategy. Defaults to
       `:match`. Use `:descriptor` to generate compact descriptor-backed sparse
       message decoders and benchmark before adopting on hot schemas.
@@ -105,6 +112,9 @@ defmodule KiwiCodec.RustlerGenerator do
               else: Keyword.get(opts, :sparse_messages, :match)
             )
         )
+
+      :records ->
+        Records.fragments(selected, module_prefix)
 
       :skip ->
         Skip.fragments(selected, definition_map,

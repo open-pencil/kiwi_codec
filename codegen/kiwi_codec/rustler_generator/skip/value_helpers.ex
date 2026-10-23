@@ -1,5 +1,6 @@
-defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
-  use RustQ.Meta
+defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
+  use RustQ.Meta,
+    callable_modules: [KiwiCodec.RustlerGenerator.UnknownFields]
 
   @moduledoc """
   RustQ-authored primitive Kiwi skip helpers used by generated Rustler decoders.
@@ -241,7 +242,7 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
           R.str(),
           R.slice(R.path(:KiwiSkipField))
         ) :: R.nif_result(R.unit())
-  defrust kiwi_skip_message_fields(decoder, _definition_name, fields) do
+  defrust kiwi_skip_message_fields(decoder, definition_name, fields) do
     field_id = decoder.read_var_uint()
 
     if field_id == 0 do
@@ -251,11 +252,12 @@ defmodule KiwiCodec.RustlerGenerator.SkipValueHelpers do
         {:ok, index} ->
           field = fields.get(index).unwrap()
           kiwi_skip_kind(decoder, field.kind)
-          kiwi_skip_message_fields(decoder, _definition_name, fields)
 
         {:error, _index} ->
-          {:error, badarg()}
+          kiwi_unknown_field(decoder, definition_name, field_id)
       end
+
+      kiwi_skip_message_fields(decoder, definition_name, fields)
     end
   end
 end

@@ -1,7 +1,7 @@
 defmodule KiwiCodec.MixProject do
   use Mix.Project
 
-  @version "0.3.1"
+  @version "0.4.0"
   @source_url "https://github.com/open-pencil/kiwi_codec"
 
   def project do
@@ -60,7 +60,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 1.0.0-rc.3", only: [:dev, :test], runtime: false}
+    {:rustq, "~> 1.0.0-rc.13", only: [:dev, :test], runtime: false}
   end
 
   defp package do
@@ -87,48 +87,73 @@ defmodule KiwiCodec.MixProject do
 
   defp docs_groups_for_modules do
     [
+      Codec: [
+        KiwiCodec,
+        KiwiCodec.Container,
+        KiwiCodec.Decoder,
+        KiwiCodec.Encoder,
+        KiwiCodec.DecodeError,
+        KiwiCodec.EncodeError,
+        KiwiCodec.TransformModule,
+        KiwiCodec.Inspect
+      ],
       Schema: [
-        KiwiCodec.Metadata,
-        KiwiCodec.Metadata.Field,
         KiwiCodec.Schema,
         KiwiCodec.Schema.Enum,
         KiwiCodec.Schema.EnumVariant,
         KiwiCodec.Schema.Field,
         KiwiCodec.Schema.Message,
         KiwiCodec.Schema.Struct,
-        KiwiCodec.SchemaInterpreter.Prepared
+        KiwiCodec.Schema.Binary,
+        KiwiCodec.Metadata,
+        KiwiCodec.Metadata.Field,
+        KiwiCodec.SchemaInterpreter,
+        KiwiCodec.SchemaInterpreter.Prepared,
+        KiwiCodec.PrimitiveType
       ],
       "Wire encoding": [
         KiwiCodec.Wire,
         KiwiCodec.Wire.VarFloat,
         KiwiCodec.Wire.Varint
       ],
-      Generation: [
-        KiwiCodec.FileGenerator,
-        KiwiCodec.ModuleCompiler,
+      "Elixir generation": [
         KiwiCodec.ModuleGenerator,
-        KiwiCodec.RustlerGenerator
-      ],
-      "Implementation internals": [
+        KiwiCodec.ModuleCompiler,
+        KiwiCodec.FileGenerator,
         KiwiCodec.DSL,
         KiwiCodec.GeneratedModule.Metadata,
         KiwiCodec.GeneratedModule.Shape,
-        KiwiCodec.GeneratedModule.TypeSpec,
-        KiwiCodec.PrimitiveType,
+        KiwiCodec.GeneratedModule.TypeSpec
+      ],
+      "Rustler generation": [
+        KiwiCodec.RustlerGenerator,
+        KiwiCodec.RustlerGenerator.Records,
+        KiwiCodec.RustlerGenerator.UnknownFields,
+        KiwiCodec.RustlerGenerator.Skip,
+        KiwiCodec.RustlerGenerator.Skip.Kind,
+        KiwiCodec.RustlerGenerator.Sparse
+      ],
+      "Rustler generation internals": [
+        KiwiCodec.RustlerGenerator.AtomCache,
         KiwiCodec.RustlerGenerator.DecoderMacro,
         KiwiCodec.RustlerGenerator.Definition,
         KiwiCodec.RustlerGenerator.Entrypoint,
+        KiwiCodec.RustlerGenerator.Full.Helpers,
         KiwiCodec.RustlerGenerator.Name,
+        KiwiCodec.RustlerGenerator.RustExpr,
         KiwiCodec.RustlerGenerator.Selection,
-        KiwiCodec.RustlerGenerator.SkipHelpers,
-        KiwiCodec.RustlerGenerator.Splice,
-        KiwiCodec.Schema.Binary,
+        KiwiCodec.RustlerGenerator.Skip.Descriptor,
+        KiwiCodec.RustlerGenerator.Skip.Helpers,
+        KiwiCodec.RustlerGenerator.Skip.ValueHelpers,
+        KiwiCodec.RustlerGenerator.Sparse.Helpers,
+        KiwiCodec.RustlerGenerator.Splice
+      ],
+      "Schema internals": [
         KiwiCodec.Schema.Binary.TypeIndex,
         KiwiCodec.Schema.Parser,
         KiwiCodec.Schema.Token,
         KiwiCodec.Schema.Tokenizer,
-        KiwiCodec.Schema.Validator,
-        KiwiCodec.SchemaInterpreter
+        KiwiCodec.Schema.Validator
       ]
     ]
   end

@@ -8,7 +8,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   authoring in Elixir/RustQ while preserving small generated source.
   """
 
-  alias KiwiCodec.RustlerGenerator.FullDecoderHelpers
+  alias KiwiCodec.RustlerGenerator.Full
   alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.RustlerGenerator.RustExpr
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
@@ -17,7 +17,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
 
   @spec enum_decoder(SchemaEnum.t()) :: RustQ.Rust.Fragment.t()
   def enum_decoder(%SchemaEnum{} = definition) do
-    FullDecoderHelpers.macro_call(:kiwi_enum_decoder,
+    Full.Helpers.macro_call(:kiwi_enum_decoder,
       fn: RustExpr.ident(Name.decoder_function(definition.name)),
       env: :env,
       decoder: :decoder,
@@ -31,7 +31,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   @spec struct_decoder(Struct.t(), String.t(), map(), (term(), map() -> iodata())) ::
           RustQ.Rust.Fragment.t()
   def struct_decoder(%Struct{} = definition, module_prefix, definition_map, field_expr_fun) do
-    FullDecoderHelpers.macro_call(:kiwi_struct_decoder,
+    Full.Helpers.macro_call(:kiwi_struct_decoder,
       fn: RustExpr.ident(Name.decoder_function(definition.name)),
       env: :env,
       decoder: :decoder,
@@ -46,7 +46,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   @spec message_decoder(Message.t(), String.t(), map(), (term(), map() -> iodata())) ::
           RustQ.Rust.Fragment.t()
   def message_decoder(%Message{} = definition, module_prefix, definition_map, _field_expr_fun) do
-    FullDecoderHelpers.macro_call(:kiwi_message_decoder,
+    Full.Helpers.macro_call(:kiwi_message_decoder,
       fn: RustExpr.ident(Name.decoder_function(definition.name)),
       fields_fn: RustExpr.ident(Name.message_fields_function(definition.name)),
       env: :env,
@@ -54,6 +54,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
       module_static: RustExpr.ident(Name.module_atom_static(definition.name)),
       keys_static: RustExpr.ident(Name.struct_keys_static(definition.name)),
       module: Name.module_name(module_prefix, definition.name),
+      definition: definition.name,
       keys: key_rows(definition.fields),
       fields: message_field_rows(definition.fields, definition_map)
     )

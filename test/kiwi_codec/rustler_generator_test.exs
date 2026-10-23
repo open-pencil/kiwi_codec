@@ -23,7 +23,8 @@ defmodule KiwiCodec.RustlerGeneratorTest do
         :decoder,
         :decoder_sources,
         :features,
-        :sparse_messages
+        :sparse_messages,
+        :unknown_fields
       ])
       |> inspect(limit: :infinity)
 
@@ -319,6 +320,82 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     refute generated =~ "bytes kiwi_sparse_bytes_value"
     refute generated =~ "enum KiwiSparseKind"
     refute generated =~ "1 => \"hash\": decoder.read_byte_array(env)?;"
+  end
+
+  test "rejects unknown message fields by default" do
+    {generated, _config} =
+      generate_with_rustq_gen!("message Node { string name = 1; }",
+        definitions: ["Node"],
+        features: [:full, :sparse, :skip],
+        sparse_messages: :descriptor,
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"]
+      )
+
+    assert generated =~ "fn kiwi_unknown_field("
+    assert generated =~ "kiwi_unknown_field(decoder, definition_name, field_id)?;"
+    refute generated =~ "struct KiwiRuntimeSchema"
+    refute generated =~ "runtime_schema()"
+  end
+
+  test "skips unknown message fields through a runtime schema when requested" do
+    {generated, _config} =
+      generate_with_rustq_gen!("message Node { string name = 1; }",
+        definitions: ["Node"],
+        features: [:full, :sparse, :skip],
+        sparse_messages: :descriptor,
+        module_prefix: "Example.Schema",
+        decoder_sources: ["test/fixtures/decoder_runtime.rs"],
+        unknown_fields: :runtime_schema
+      )
+
+    assert generated =~ "pub struct KiwiRuntimeSchema"
+    assert generated =~ "match decoder.runtime_schema()"
+    assert generated =~ "kiwi_message_fields($env, $decoder, $definition_name,"
+    assert generated =~ "definition \"Node\";"
+    assert generated =~ "kiwi_unknown_field(decoder, definition_name, field_id)?;"
+  end
+
+  test "generates native records with a definition table and field constants" do
+    {generated, _config} =
+      generate_with_rustq_gen!(
+        """
+        enum Kind { PLAIN = 0; FANCY = 3; }
+        struct Point { float x; float y; }
+        message Type { string displayName = 2; Kind kind = 1; Point[] points = 4; byte[] data = 5; }
+        """,
+        definitions: ["Type"],
+        features: [:records],
+        module_prefix: "Example.Schema"
+      )
+
+    assert generated =~ "pub struct KiwiRecord {"
+    assert generated =~ "pub fn kiwi_decode_record("
+    assert generated =~ "pub fn kiwi_encode_record_fields<'a>("
+    assert generated =~ "fn kiwi_atom(env: Env<'_>, name: &'static str) -> Atom"
+    assert generated =~ "static KIWI_RECORD_DEFINITIONS: &[KiwiRecordDefinition]"
+    assert generated =~ ~s(module: "Elixir.Example.Schema.Type")
+    assert generated =~ ~s(name: "display_name")
+    assert generated =~ ~s(name: "fancy")
+
+    # Message fields are listed by id; a Rust keyword gets a suffix as a module name.
+    assert generated =~ ~r/name: "kind".*name: "display_name"/s
+    assert generated =~ "pub mod type_ {"
+    assert generated =~ "pub const DISPLAY_NAME: u32 = 2;"
+    assert generated =~ "pub mod point {"
+    assert generated =~ "pub const FANCY: u32 = 3;"
+    assert generated =~ "pub mod kiwi_record_definitions {"
+    assert generated =~ ~r/pub const TYPE: u32 = \d+;/
+  end
+
+  test "rejects an unknown unknown-fields mode" do
+    assert_raise ArgumentError, ~r/expected :unknown_fields/, fn ->
+      KiwiCodec.RustlerGenerator.source(
+        KiwiCodec.parse_schema!("message Node { string name = 1; }"),
+        module_prefix: "Example.Schema",
+        unknown_fields: :ignore
+      )
+    end
   end
 
   test "ignores decoder source metadata when skip decoders are not requested" do

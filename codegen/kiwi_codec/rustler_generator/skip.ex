@@ -7,13 +7,12 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   fields from a Kiwi payload.
   """
 
-  alias KiwiCodec.RustlerGenerator.RustExpr
+  alias KiwiCodec.RustlerGenerator.Name
   alias __MODULE__.Descriptor
   alias __MODULE__.ValueHelpers
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.{Message, Struct}
   alias RustQ.Meta.AST, as: MetaAST
-  alias RustQ.Rust
   alias RustQ.Rust.AST
   alias RustQ.Rust.AST.Builder, as: A
   alias RustQ.Rust.AST.PatternBuilder, as: P
@@ -33,16 +32,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
   @spec fragments([KiwiCodec.Schema.definition()], map(), keyword()) :: [RustQ.Rust.Fragment.t()]
   def fragments(definitions, definition_map, opts \\ []) do
     messages? = Keyword.get(opts, :messages?, true)
-    struct_mode = Keyword.get(opts, :struct_mode, :match)
-    Enum.map(definitions, &definition(&1, definition_map, messages?, struct_mode))
-  end
-
-  @spec field_expr(map(), map()) :: String.t()
-  def field_expr(field, definition_map) do
-    field
-    |> skip_call(definition_map)
-    |> Rust.render()
-    |> IO.iodata_to_binary()
+    Enum.map(definitions, &definition(&1, definition_map, messages?))
   end
 
   @spec message_arm(map(), map()) :: AST.Arm.t()
@@ -53,10 +43,10 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     }
   end
 
-  defp definition(definition, definition_map, messages?, struct_mode)
-  defp definition(%SchemaEnum{}, _definition_map, _messages?, _struct_mode), do: []
+  defp definition(definition, definition_map, messages?)
+  defp definition(%SchemaEnum{}, _definition_map, _messages?), do: []
 
-  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?, _struct_mode) do
+  defp definition(%Struct{name: name, fields: fields}, definition_map, _messages?) do
     MetaAST.macro_call!(ValueHelpers, :kiwi_skip_struct_decoder,
       fn: skip_function_name(name),
       decoder: :decoder,
@@ -64,9 +54,9 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     )
   end
 
-  defp definition(%Message{}, _definition_map, false, _struct_mode), do: []
+  defp definition(%Message{}, _definition_map, false), do: []
 
-  defp definition(%Message{name: name, fields: fields}, definition_map, true, _struct_mode) do
+  defp definition(%Message{name: name, fields: fields}, definition_map, true) do
     MetaAST.macro_call!(ValueHelpers, :kiwi_skip_message_decoder,
       fn: skip_function_name(name),
       decoder: :decoder,
@@ -103,7 +93,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip do
     |> skip_kind_call()
   end
 
-  defp skip_function_name(name), do: ["skip_", RustExpr.ident(name), "_from_decoder"]
+  defp skip_function_name(name), do: ["skip_", Name.rust_identifier(name), "_from_decoder"]
 
   defp skip_kind(%{array?: true, type: "byte"}, _definition_map),
     do: %Kind{mode: :bytes, function: :kiwi_skip_bytes_value}

@@ -29,7 +29,8 @@ defmodule KiwiCodec.MixProject do
     [extra_applications: [:logger]]
   end
 
-  defp elixirc_paths(env) when env in [:dev, :test], do: ["lib", "codegen"]
+  defp elixirc_paths(:test), do: ["lib", "codegen", "test/support"]
+  defp elixirc_paths(:dev), do: ["lib", "codegen"]
   defp elixirc_paths(_env), do: ["lib"]
 
   defp aliases do
@@ -60,7 +61,7 @@ defmodule KiwiCodec.MixProject do
   end
 
   defp rustq_dep do
-    {:rustq, "~> 1.0.0-rc.13", only: [:dev, :test], runtime: false}
+    {:rustq, "~> 1.0.0-rc.14", only: [:dev, :test], runtime: false}
   end
 
   defp package do

@@ -1,5 +1,6 @@
 defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
   use RustQ.Meta,
+    rust_sources: [KiwiCodec.RustlerGenerator.Decoder.source()],
     callable_modules: [
       RustQ.Rustler.Atom,
       RustQ.Rustler.Term,
@@ -34,11 +35,14 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
     :kiwi_full_field_value
   ]
 
-  @typedoc false
+  @typedoc "The Rust `KiwiFullDecodeFn`: decodes one value of a type into a term."
   @type kiwi_full_decode_fn ::
           R.raw(:"for<'a> fn(Env<'a>, &mut Decoder<'_>) -> NifResult<Term<'a>>")
 
-  @typedoc false
+  @typedoc """
+  The Rust `KiwiFullField`: a message field id, its index among the struct's values, and how to
+  decode it.
+  """
   @type kiwi_full_field :: %{
           required(:id) => R.u32(),
           required(:index) => R.usize(),
@@ -46,10 +50,10 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
           required(:decode) => kiwi_full_decode_fn()
         }
 
-  @typedoc false
+  @typedoc "The Rust `KiwiEnumVariant`: an enum value and the atom name it decodes to."
   @type kiwi_enum_variant :: %{
           required(:value) => R.u32(),
-          required(:name) => R.str()
+          required(:name) => R.raw(:"&'static str")
         }
 
   @spec fragments([atom()]) :: [RustQ.Rust.Fragment.t()]
@@ -86,22 +90,26 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
         cached_struct_keys(
           env,
           ref(keys_static),
+          ref(
+            array([
+              repeat keys do
+                key
+              end
+            ])
+          )
+        )
+
+      make_struct_from_arrays(
+        env,
+        keys,
+        ref(
           array([
-            repeat keys do
-              key
+            module_atom.to_term(env),
+            repeat fields do
+              field_expr.encode(env)
             end
           ])
         )
-
-      make_struct_from_nif_term_arrays(
-        env,
-        keys,
-        array([
-          module_atom.as_c_arg(),
-          repeat fields do
-            field_expr.encode(env).as_c_arg()
-          end
-        ])
       )
     end
   end
@@ -138,11 +146,13 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
         cached_struct_keys(
           env,
           ref(keys_static),
-          array([
-            repeat keys do
-              key
-            end
-          ])
+          ref(
+            array([
+              repeat keys do
+                key
+              end
+            ])
+          )
         )
 
       values = default_struct_values(env, module_atom, keys.len() - 1)
@@ -152,8 +162,8 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
     @spec fields_name(
             R.path(:Env, R.lifetime(:a)),
             R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
-            R.slice(R.path({:rustler, :wrapper, :NIF_TERM})),
-            R.vec(R.path({:rustler, :wrapper, :NIF_TERM}))
+            R.slice(R.path(:Atom)),
+            R.vec(term())
           ) :: R.nif_result(term())
     defrust fields_name(env, decoder, struct_keys, struct_values) do
       kiwi_message_fields(
@@ -227,8 +237,7 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_float_value(env, decoder) do
-    value = decoder.read_var_float_value()
-    {:ok, value.encode(env)}
+    decoder.read_var_float(env)
   end
 
   @spec kiwi_full_int_value(
@@ -254,8 +263,7 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
           R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
         ) :: R.nif_result(term())
   defrust kiwi_full_string_value(env, decoder) do
-    value = decoder.read_string()
-    {:ok, value.encode(env)}
+    decoder.read_string(env)
   end
 
   @spec kiwi_full_uint_value(
@@ -288,23 +296,21 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
           R.path(:Env, R.lifetime(:a)),
           R.mut_ref(R.path(:Decoder, R.lifetime(:_))),
           R.str(),
-          R.slice(R.path({:rustler, :wrapper, :NIF_TERM})),
-          R.vec(R.path({:rustler, :wrapper, :NIF_TERM})),
+          R.slice(R.path(:Atom)),
+          R.vec(term()),
           R.slice(R.path(:KiwiFullField))
         ) :: R.nif_result(term())
   defrust kiwi_message_fields(env, decoder, definition_name, keys, values, fields) do
     field_id = decoder.read_var_uint()
 
     if field_id == 0 do
-      make_struct_from_nif_term_arrays(env, keys, ref(values))
+      make_struct_from_arrays(env, keys, ref(values))
     else
       case fields.binary_search_by_key(field_id, fn field -> field.id end) do
         {:ok, index} ->
           field = fields.get(index).unwrap()
-          value = kiwi_full_field_value(env, decoder, field)
-          next_values = values
-          assign!(index(next_values, field.index), value.as_c_arg())
-          kiwi_message_fields(env, decoder, definition_name, keys, next_values, fields)
+          assign!(index(values, field.index), kiwi_full_field_value(env, decoder, field))
+          kiwi_message_fields(env, decoder, definition_name, keys, values, fields)
 
         {:error, _index} ->
           kiwi_unknown_field(decoder, definition_name, field_id)
@@ -319,11 +325,13 @@ defmodule KiwiCodec.RustlerGenerator.Full.Helpers do
           R.ref(R.path(:KiwiFullField))
         ) :: R.nif_result(term())
   defrust kiwi_full_field_value(env, decoder, field) do
+    decode = field.decode
+
     if field.repeated do
-      values = decoder.read_repeated(fn decoder -> field.decode(env, decoder) end)
+      values = decoder.read_repeated(fn decoder -> decode(env, decoder) end)
       {:ok, values.encode(env)}
     else
-      field.decode(env, decoder)
+      decode(env, decoder)
     end
   end
 

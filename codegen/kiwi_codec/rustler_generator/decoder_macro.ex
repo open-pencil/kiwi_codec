@@ -18,7 +18,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   @spec enum_decoder(SchemaEnum.t()) :: RustQ.Rust.Fragment.t()
   def enum_decoder(%SchemaEnum{} = definition) do
     Full.Helpers.macro_call(:kiwi_enum_decoder,
-      fn: RustExpr.ident(Name.decoder_function(definition.name)),
+      fn: Name.decoder_function(definition.name),
       env: :env,
       decoder: :decoder,
       variants:
@@ -28,31 +28,30 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
     )
   end
 
-  @spec struct_decoder(Struct.t(), String.t(), map(), (term(), map() -> iodata())) ::
+  @spec struct_decoder(Struct.t(), String.t(), map(), (term(), map() -> RustQ.Rust.AST.expr())) ::
           RustQ.Rust.Fragment.t()
   def struct_decoder(%Struct{} = definition, module_prefix, definition_map, field_expr_fun) do
     Full.Helpers.macro_call(:kiwi_struct_decoder,
-      fn: RustExpr.ident(Name.decoder_function(definition.name)),
+      fn: Name.decoder_function(definition.name),
       env: :env,
       decoder: :decoder,
-      module_static: RustExpr.ident(Name.module_atom_static(definition.name)),
-      keys_static: RustExpr.ident(Name.struct_keys_static(definition.name)),
+      module_static: Name.module_atom_static(definition.name),
+      keys_static: Name.struct_keys_static(definition.name),
       module: Name.module_name(module_prefix, definition.name),
       keys: key_rows(definition.fields),
       fields: field_expr_rows(definition.fields, definition_map, field_expr_fun)
     )
   end
 
-  @spec message_decoder(Message.t(), String.t(), map(), (term(), map() -> iodata())) ::
-          RustQ.Rust.Fragment.t()
-  def message_decoder(%Message{} = definition, module_prefix, definition_map, _field_expr_fun) do
+  @spec message_decoder(Message.t(), String.t(), map()) :: RustQ.Rust.Fragment.t()
+  def message_decoder(%Message{} = definition, module_prefix, definition_map) do
     Full.Helpers.macro_call(:kiwi_message_decoder,
-      fn: RustExpr.ident(Name.decoder_function(definition.name)),
-      fields_fn: RustExpr.ident(Name.message_fields_function(definition.name)),
+      fn: Name.decoder_function(definition.name),
+      fields_fn: Name.message_fields_function(definition.name),
       env: :env,
       decoder: :decoder,
-      module_static: RustExpr.ident(Name.module_atom_static(definition.name)),
-      keys_static: RustExpr.ident(Name.struct_keys_static(definition.name)),
+      module_static: Name.module_atom_static(definition.name),
+      keys_static: Name.struct_keys_static(definition.name),
       module: Name.module_name(module_prefix, definition.name),
       definition: definition.name,
       keys: key_rows(definition.fields),
@@ -70,7 +69,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
       defnif unquote(nif_name)(bytes) do
         decoder = Decoder.new(bytes.as_slice())
 
-        case unquote(decoder_name)(nif_env(), decoder) do
+        case unquote(decoder_name)(nif_env(), mut_ref(decoder)) do
           {:ok, term} ->
             case decoder.finish() do
               {:ok, _done} -> {:ok, term}
@@ -122,7 +121,7 @@ defmodule KiwiCodec.RustlerGenerator.DecoderMacro do
   defp full_decode_function(%{type: type}, definition_map) do
     case RustExpr.primitive(type) do
       nil -> Name.decoder_function(Map.fetch!(definition_map, type).name)
-      _expr -> Identifier.atom!("kiwi_full_#{RustExpr.ident(type)}_value")
+      _expr -> Identifier.atom!("kiwi_full_#{type}_value")
     end
   end
 end

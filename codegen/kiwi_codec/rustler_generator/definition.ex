@@ -34,7 +34,7 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
     [
       atom_static(Name.module_atom_static(definition.name)),
       keys_static(Name.struct_keys_static(definition.name)),
-      DecoderMacro.message_decoder(definition, module_prefix, definition_map, &field_expr/2)
+      DecoderMacro.message_decoder(definition, module_prefix, definition_map)
     ]
   end
 
@@ -43,41 +43,25 @@ defmodule KiwiCodec.RustlerGenerator.Definition do
   end
 
   defp keys_static(name) do
-    A.static(name, "OnceLock<Vec<rustler::wrapper::NIF_TERM>>", A.path_call([:OnceLock, :new]))
+    A.static(name, "OnceLock<Vec<Atom>>", A.path_call([:OnceLock, :new]))
   end
 
   defp field_expr(%{array?: true, type: "byte"}, _definition_map) do
-    "decoder.read_byte_array(env)?"
+    A.try(A.method(:decoder, :read_byte_array, [:env]))
   end
 
-  defp field_expr(%{array?: true} = field, definition_map) do
-    inner = array_field_expr(%{field | array?: false}, definition_map)
-    ["decoder.read_repeated(|decoder| ", inner, ")?"]
+  defp field_expr(%{array?: true, type: type}, definition_map) do
+    read_item = A.closure([:decoder], read(type, definition_map))
+    A.try(A.method(:decoder, :read_repeated, [read_item]))
   end
 
-  defp field_expr(%{type: type}, definition_map) do
-    case RustExpr.primitive(type) do
-      nil ->
-        [
-          RustExpr.ident(Name.decoder_function(Map.fetch!(definition_map, type).name)),
-          "(env, decoder)?"
-        ]
+  defp field_expr(%{type: type}, definition_map), do: A.try(read(type, definition_map))
 
-      expr ->
-        expr
-    end
-  end
-
-  defp array_field_expr(%{type: type}, definition_map) do
-    case RustExpr.primitive(type) do
-      nil ->
-        [
-          RustExpr.ident(Name.decoder_function(Map.fetch!(definition_map, type).name)),
-          "(env, decoder)"
-        ]
-
-      expr ->
-        String.trim_trailing(expr, "?")
+  defp read(type, definition_map) do
+    if KiwiCodec.PrimitiveType.name?(type) do
+      RustExpr.read(type)
+    else
+      A.call(Name.decoder_function(Map.fetch!(definition_map, type).name), [:env, :decoder])
     end
   end
 end

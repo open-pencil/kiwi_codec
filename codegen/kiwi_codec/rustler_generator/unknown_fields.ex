@@ -10,11 +10,8 @@ defmodule KiwiCodec.RustlerGenerator.UnknownFields do
 
     * `:error` rejects the data with `Error::BadArg`.
     * `:runtime_schema` skips the field using a `KiwiRuntimeSchema` decoded from
-      the schema that accompanies the data. The caller's `Decoder<'a>` must
-      expose it as `fn runtime_schema(&self) -> Option<&'a KiwiRuntimeSchema>`
-      (returning `None` keeps the `:error` behavior), and provide
-      `read_string_value`, `skip_string`, and `skip_byte_array` in addition to
-      the primitive readers.
+      the schema that accompanies the data, which the `Decoder` returns from
+      `runtime_schema()`; see `KiwiCodec.RustlerGenerator.Decoder`.
 
   The runtime schema only skips values; decoded output is unchanged. Kiwi
   struct layouts cannot be extended compatibly, so a schema that changes a

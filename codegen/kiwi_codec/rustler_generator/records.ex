@@ -11,10 +11,8 @@ defmodule KiwiCodec.RustlerGenerator.Records do
       kiwi_records::node_change::FILL_PAINTS
       kiwi_records::node_phase::REMOVED
 
-  Decoding needs the caller's `Decoder<'a>` to provide, besides the primitive readers,
-  `read_byte_array_value(&mut self) -> NifResult<&'a [u8]>`,
-  `read_string_str(&mut self) -> NifResult<&'a str>`, and
-  `remaining(&self) -> usize`. Unknown message fields go through `kiwi_unknown_field`; see
+  Decoding uses the `Decoder` methods `KiwiCodec.RustlerGenerator.Decoder` lists for records.
+  Unknown message fields go through `kiwi_unknown_field`; see
   `KiwiCodec.RustlerGenerator.UnknownFields`.
   """
 
@@ -22,15 +20,12 @@ defmodule KiwiCodec.RustlerGenerator.Records do
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias KiwiCodec.Schema.Struct
   alias RustQ.Rust.AST.Builder, as: A
+  alias RustQ.Rust.Identifier
 
   @template Path.expand("templates/records_runtime.rs", __DIR__)
   @external_resource @template
 
   @primitives ~w(bool byte int uint float string int64 uint64)
-
-  @rust_keywords ~w(as async await box break const continue crate dyn else enum extern false fn
-                    for if impl in let loop match mod move mut pub ref return self static struct
-                    super trait true type unsafe use where while yield)
 
   @kinds %{SchemaEnum => 0, Struct => 1, KiwiCodec.Schema.Message => 2}
 
@@ -133,8 +128,6 @@ defmodule KiwiCodec.RustlerGenerator.Records do
     A.const(name, :u32, A.lit(variant.value), vis: :pub)
   end
 
-  defp module_identifier(name) do
-    identifier = Name.rust_identifier(name)
-    if identifier in @rust_keywords, do: identifier <> "_", else: identifier
-  end
+  # A keyword, such as the module for a `Type` definition, renders as a raw identifier.
+  defp module_identifier(name), do: name |> Name.rust_identifier() |> Identifier.atom!()
 end

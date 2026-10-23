@@ -21,13 +21,19 @@ The generator is organized as a small pipeline:
 4. `KiwiCodec.RustlerGenerator.Splice` selects the shared Rust macro definitions
    and helper functions consumed by those invocations. The full, sparse, and
    skip helper modules author those macros with RustQ `defrustmacro`, `defrust`,
-   type metadata, and source-backed method metadata where decoder sources are
-   available.
+   type metadata, and method metadata read from the `Decoder` source: the
+   reference `decoder.rs` beside `KiwiCodec.RustlerGenerator.Decoder`, or the
+   caller's `decoder_sources:`.
 5. `KiwiCodec.RustlerGenerator.Entrypoint` emits Rustler NIF entrypoints through
    RustQ `defrust`, where the wrapper control flow is small and readable.
 
 This split keeps schema logic in Elixir while avoiding thousands of repeated
 expanded Rust function bodies.
+
+Three pieces are shared by every schema and written as Rust under `templates/`:
+the record runtime, the runtime schema that skips unknown fields, and the atom
+cache. They are ordinary Rust APIs, documented for the Rust code that uses
+them, rather than repetitive decoder shapes.
 
 ## Compact RustQ macro boundary
 
@@ -44,9 +50,9 @@ When changing full, sparse, or skip decoder generation:
 - Use RustQ AST or Rusty-Elixir helpers for local expression/arm/function
   generation where it remains compact, such as skip field arms used by
   downstream custom templates.
-- Use `decoder_sources:` to expose the downstream Rust `Decoder` implementation
-  before adding `unwrap!`, verbose propagation `case` expressions, or duplicate
-  method metadata for skip helpers.
+- Declare a `Decoder` method in the reference `decoder.rs` before adding
+  `unwrap!`, verbose propagation `case` expressions, or duplicate method
+  metadata to a helper.
 - Do not replace compact decoder macro invocations with fully expanded Rust just
   to say the generator is "AST-backed" or "defrust-backed".
 
@@ -66,6 +72,14 @@ As of the current generator polish, Figler with local KiwiCodec and
 
 Small formatting or schema changes can move this slightly, but a large jump
 usually means a compact macro boundary was accidentally expanded.
+
+## Tests
+
+`KiwiCodec.RustlerGenerator.NativeTest` builds the generated decoders for every
+feature with the reference `Decoder`, loads them as NIFs, and checks what they
+return against `KiwiCodec.decode/2` and `KiwiCodec.SchemaInterpreter`. A
+generator change that produces Rust that does not compile, or decodes
+differently, fails there; tests of the generated text are not needed for it.
 
 ## Practical checklist
 

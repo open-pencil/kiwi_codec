@@ -53,7 +53,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse.Helpers do
   end
 
   defp generated_module!(decoder_sources) do
-    decoder_sources = List.wrap(decoder_sources)
+    decoder_sources = KiwiCodec.RustlerGenerator.Decoder.sources(decoder_sources)
 
     module =
       Module.concat([

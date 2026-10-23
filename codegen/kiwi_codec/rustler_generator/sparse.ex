@@ -7,7 +7,6 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
   """
 
   alias KiwiCodec.RustlerGenerator.Name
-  alias KiwiCodec.RustlerGenerator.RustExpr
   alias __MODULE__.Helpers
   alias KiwiCodec.RustlerGenerator.Skip
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
@@ -20,12 +19,11 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
         ]
   def fragments(definitions, module_prefix, definition_map, opts \\ []) do
     full? = Keyword.get(opts, :full?, false)
-    struct_mode = Keyword.get(opts, :struct_mode, :match)
     message_mode = Keyword.get(opts, :message_mode, :match)
 
     definitions
     |> Enum.flat_map(fn definition ->
-      definition(definition, module_prefix, definition_map, full?, struct_mode, message_mode)
+      definition(definition, module_prefix, definition_map, full?, message_mode)
       |> List.wrap()
     end)
   end
@@ -35,10 +33,8 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          module_prefix,
          definition_map,
          _full?,
-         mode,
          _message_mode
-       )
-       when mode in [:match, :descriptor] do
+       ) do
     sparse_struct_decoder(name, module_prefix, fields, definition_map)
   end
 
@@ -47,7 +43,6 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          _module_prefix,
          _definition_map,
          true,
-         _struct_mode,
          _message_mode
        ) do
     sparse_enum_passthrough_function(name)
@@ -58,11 +53,10 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          _module_prefix,
          _definition_map,
          false,
-         _struct_mode,
          _message_mode
        ) do
     Helpers.macro_call(:kiwi_sparse_enum_decoder,
-      fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
+      fn: "decode_sparse_#{Name.rust_identifier(name)}_from_decoder",
       env: :env,
       decoder: :decoder,
       variants:
@@ -77,7 +71,6 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          module_prefix,
          definition_map,
          _full?,
-         _struct_mode,
          :match
        ) do
     sparse_message_function(
@@ -93,10 +86,9 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          module_prefix,
          definition_map,
          _full?,
-         _struct_mode,
          :descriptor_with_skip
        ) do
-    ident = RustExpr.ident(name)
+    ident = Name.rust_identifier(name)
 
     Helpers.macro_call(:kiwi_sparse_skip_message_descriptor_decoder,
       sparse_fn: "decode_sparse_#{ident}_from_decoder",
@@ -118,11 +110,10 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
          module_prefix,
          definition_map,
          _full?,
-         _struct_mode,
          :descriptor
        ) do
     Helpers.macro_call(:kiwi_sparse_message_descriptor_decoder,
-      fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
+      fn: "decode_sparse_#{Name.rust_identifier(name)}_from_decoder",
       env: :env,
       decoder: :decoder,
       module: module_name(module_prefix, name),
@@ -137,7 +128,7 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
 
   defp sparse_struct_decoder(name, module_prefix, fields, definition_map) do
     Helpers.macro_call(:kiwi_sparse_struct_decoder,
-      fn: "decode_sparse_#{RustExpr.ident(name)}_from_decoder",
+      fn: "decode_sparse_#{Name.rust_identifier(name)}_from_decoder",
       env: :env,
       decoder: :decoder,
       module: module_name(module_prefix, name),
@@ -314,15 +305,15 @@ defmodule KiwiCodec.RustlerGenerator.Sparse do
     do: {false, false, Skip.Descriptor.scalar_function(type, definition_map)}
 
   defp sparse_function_name(name),
-    do: Identifier.atom!("decode_sparse_#{RustExpr.ident(name)}_from_decoder")
+    do: Identifier.atom!("decode_sparse_#{Name.rust_identifier(name)}_from_decoder")
 
   defp descriptor_scalar_function(%{type: type}, definition_map) do
     cond do
       KiwiCodec.PrimitiveType.name?(type) ->
-        ["kiwi_sparse_", RustExpr.ident(type), "_value"]
+        ["kiwi_sparse_", type, "_value"]
 
       Map.has_key?(definition_map, type) ->
-        ["decode_sparse_", RustExpr.ident(type), "_from_decoder"]
+        ["decode_sparse_", Name.rust_identifier(type), "_from_decoder"]
     end
   end
 

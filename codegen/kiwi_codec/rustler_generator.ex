@@ -7,8 +7,9 @@ defmodule KiwiCodec.RustlerGenerator do
   entrypoints; `rustq.exs` owns writing and freshness checks.
 
   The generated source includes the Rustler imports, RustQ Rustler term helpers,
-  schema decoders, and requested entrypoints. The caller only needs to provide a
-  `Decoder<'a>` type with Kiwi primitive reader methods.
+  schema decoders, and requested entrypoints. The caller provides the `Decoder<'a>`
+  they read with; `KiwiCodec.RustlerGenerator.Decoder` describes it and ships a
+  complete one.
   """
 
   alias KiwiCodec.RustlerGenerator.Definition
@@ -51,8 +52,8 @@ defmodule KiwiCodec.RustlerGenerator do
     * `:decoder` - Rust path imported as `Decoder`. Defaults to
       `"crate::runtime::Decoder"`.
     * `:decoder_sources` - Rust source file or files that define the imported
-      `Decoder`. When provided, shared skip helper functions are authored with
-      `defrust` and RustQ uses the real decoder method metadata for propagation.
+      `Decoder`, read for which of its methods return a `NifResult`. Defaults to
+      the reference `Decoder`; pass yours when its signatures differ.
     * `:features` - decoder families to generate. Defaults to `[:full]`.
       Use `:sparse` and `:skip` for generic sparse map decoders and skip
       helpers used by projection-oriented native backends, and `:records` for
@@ -104,8 +105,6 @@ defmodule KiwiCodec.RustlerGenerator do
       :sparse ->
         Sparse.fragments(selected, module_prefix, definition_map,
           full?: :full in features,
-          struct_mode:
-            if(Keyword.get(opts, :decoder_sources, []) == [], do: :match, else: :descriptor),
           message_mode:
             if(shared_sparse_skip?,
               do: :descriptor_with_skip,
@@ -117,11 +116,7 @@ defmodule KiwiCodec.RustlerGenerator do
         Records.fragments(selected, module_prefix)
 
       :skip ->
-        Skip.fragments(selected, definition_map,
-          messages?: not shared_sparse_skip?,
-          struct_mode:
-            if(Keyword.get(opts, :decoder_sources, []) == [], do: :match, else: :descriptor)
-        )
+        Skip.fragments(selected, definition_map, messages?: not shared_sparse_skip?)
 
       feature ->
         raise ArgumentError, "unknown Rustler generator feature #{inspect(feature)}"

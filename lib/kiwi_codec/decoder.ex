@@ -74,6 +74,9 @@ defmodule KiwiCodec.Decoder do
   defp skip_unknown_field(binary, %module{}, id, schema) do
     definition_name = module |> Module.split() |> List.last()
     SchemaInterpreter.skip_message_field(schema, definition_name, id, binary)
+  rescue
+    error in ArgumentError ->
+      raise_skip_field_error(module, id, error)
   end
 
   defp decode_wire_field(binary, %Field{} = field, module, schema) do
@@ -127,6 +130,12 @@ defmodule KiwiCodec.Decoder do
   defp raise_unknown_field(struct, id) do
     raise KiwiCodec.DecodeError,
       message: "unknown field #{id} while decoding #{inspect(struct.__struct__)}"
+  end
+
+  defp raise_skip_field_error(module, id, error) do
+    raise KiwiCodec.DecodeError,
+      message:
+        "error skipping unknown field #{id} of #{inspect(module)}: #{Exception.message(error)}"
   end
 
   defp raise_decode_field_error(module, field, error) do

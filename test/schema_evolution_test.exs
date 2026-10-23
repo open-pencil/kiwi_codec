@@ -76,6 +76,18 @@ defmodule KiwiCodec.SchemaEvolutionTest do
     end
   end
 
+  test "reports a schema without the message's definition as a decode error" do
+    unrelated = KiwiCodec.parse_schema!("message Other { uint id = 1; }")
+
+    assert_raise KiwiCodec.DecodeError,
+                 ~r/error skipping unknown field 3 of KiwiCodec.EvolutionTest.EvolvingNode/,
+                 fn ->
+                   KiwiCodec.decode(<<3, 1, 0>>, KiwiCodec.EvolutionTest.EvolvingNode,
+                     schema: unrelated
+                   )
+                 end
+  end
+
   test "skips one message field and returns the bytes after it", %{written: written} do
     field = SchemaInterpreter.encode(written, "EvolvingChild", %{"label" => "x"})
     <<2, value_and_end::binary>> = field

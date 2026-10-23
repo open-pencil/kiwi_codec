@@ -83,8 +83,8 @@ functions name definitions, or `{:nif_stubs, module}` for a module whose
 `stubs/0` lists them. Only the definitions entrypoints need, and their
 dependencies, are generated unless `:definitions` names others.
 
-For the other features, write the NIF yourself. This one returns the sparse map
-of a `Node`:
+For the other features, write the NIF yourself. With `features: [:sparse]`, this
+one returns the sparse map of a `Node`:
 
 ```rust
 #[rustler::nif]

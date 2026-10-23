@@ -1,6 +1,6 @@
 defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
   use RustQ.Meta,
-    rust_sources: [Path.expand("../decoder.rs", __DIR__)],
+    rust_sources: [KiwiCodec.RustlerGenerator.Decoder.source()],
     callable_modules: [KiwiCodec.RustlerGenerator.UnknownFields]
 
   @moduledoc """

@@ -9,6 +9,7 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   """
 
   alias KiwiCodec.RustlerGenerator.AtomCache
+  alias KiwiCodec.RustlerGenerator.Decoder
   alias KiwiCodec.RustlerGenerator.Full
   alias KiwiCodec.RustlerGenerator.Skip
   alias KiwiCodec.RustlerGenerator.Sparse
@@ -28,17 +29,13 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         include: [
           :cached_struct_keys,
           :default_struct_values,
-          :make_struct_from_nif_term_arrays
+          :make_struct_from_arrays
         ]
       )
   end
 
-  defp helper_decoder_sources(opts, features) do
-    if Enum.any?(features, &(&1 in [:skip, :sparse])) do
-      Keyword.get(opts, :decoder_sources, [])
-    else
-      []
-    end
+  defp helper_decoder_sources(opts, _features) do
+    opts |> Keyword.get(:decoder_sources, []) |> Decoder.sources()
   end
 
   defp decoder_macros(features, decoder_sources, opts) do
@@ -69,8 +66,6 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
     |> List.flatten()
   end
 
-  defp skip_decoder_fragments([], _shared?), do: skip_decoder_helpers()
-
   defp skip_decoder_fragments(decoder_sources, shared?) do
     [
       Skip.Helpers.fragments(decoder_sources),
@@ -81,11 +76,6 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
         raw_message_macro?: not shared?
       )
     ]
-    |> List.flatten()
-  end
-
-  defp skip_decoder_helpers do
-    [Skip.ValueHelpers.fragments(), Skip.ValueHelpers.macro_fragments()]
     |> List.flatten()
   end
 
@@ -119,12 +109,6 @@ defmodule KiwiCodec.RustlerGenerator.Splice do
   defp shared_sparse_skip?(features, opts) do
     :sparse in features and :skip in features and
       Keyword.get(opts, :sparse_messages, :match) == :descriptor
-  end
-
-  defp sparse_decoder_fragments(decoder_sources, shared?, opts)
-
-  defp sparse_decoder_fragments([], _shared?, _opts) do
-    Sparse.Helpers.fragments([], macros: sparse_helper_macros(false))
   end
 
   defp sparse_decoder_fragments(decoder_sources, shared?, _opts) do

@@ -1,5 +1,6 @@
 defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
   use RustQ.Meta,
+    rust_sources: [Path.expand("../decoder.rs", __DIR__)],
     callable_modules: [KiwiCodec.RustlerGenerator.UnknownFields]
 
   @moduledoc """
@@ -36,14 +37,14 @@ defmodule KiwiCodec.RustlerGenerator.Skip.ValueHelpers do
     :kiwi_skip_message_fields
   ]
 
-  @typedoc false
+  @typedoc "The Rust `KiwiSkipFn`: skips one value of a type."
   @type kiwi_skip_fn :: R.raw(:"fn(&mut Decoder<'_>) -> NifResult<()>")
 
-  @typedoc false
+  @typedoc "The Rust `KiwiSkipKind`: how a field's value is skipped, once, repeated, or as bytes."
   @type kiwi_skip_kind ::
           R.enum(one: [kiwi_skip_fn()], repeated: [kiwi_skip_fn()], bytes: [])
 
-  @typedoc false
+  @typedoc "The Rust `KiwiSkipField`: a message field id and how to skip its value."
   @type kiwi_skip_field :: %{
           required(:id) => R.u32(),
           required(:kind) => kiwi_skip_kind()

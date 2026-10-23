@@ -126,10 +126,8 @@ defmodule KiwiCodec.Schema.Parser do
   defp expect!([token | _rest], expected),
     do: Token.parse_error!(token, "expected #{inspect(expected)}")
 
-  defp expect_identifier!(%Token{text: text} = token) do
-    unless Regex.match?(~r/^[A-Za-z_][A-Za-z0-9_]*$/, text),
-      do: Token.parse_error!(token, "expected identifier")
-  end
+  defp expect_identifier!(%Token{kind: :identifier}), do: :ok
+  defp expect_identifier!(token), do: Token.parse_error!(token, "expected identifier")
 
   defp parse_integer!(%Token{text: text} = token) do
     case Integer.parse(text) do

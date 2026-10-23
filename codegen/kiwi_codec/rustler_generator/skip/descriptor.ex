@@ -5,7 +5,7 @@ defmodule KiwiCodec.RustlerGenerator.Skip.Descriptor do
   `skip_<definition>_from_decoder` for a struct or message.
   """
 
-  alias KiwiCodec.RustlerGenerator.RustExpr
+  alias KiwiCodec.RustlerGenerator.Name
   alias KiwiCodec.Schema.Enum, as: SchemaEnum
   alias RustQ.Rust.Identifier
 
@@ -14,13 +14,13 @@ defmodule KiwiCodec.RustlerGenerator.Skip.Descriptor do
   def scalar_function(type, definition_map) do
     cond do
       KiwiCodec.PrimitiveType.name?(type) ->
-        Identifier.atom!("kiwi_skip_#{RustExpr.ident(type)}_value")
+        Identifier.atom!("kiwi_skip_#{type}_value")
 
       match?(%SchemaEnum{}, Map.get(definition_map, type)) ->
         :kiwi_skip_uint_value
 
       Map.has_key?(definition_map, type) ->
-        Identifier.atom!("skip_#{RustExpr.ident(type)}_from_decoder")
+        Identifier.atom!("skip_#{Name.rust_identifier(type)}_from_decoder")
     end
   end
 end

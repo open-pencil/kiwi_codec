@@ -36,12 +36,12 @@ defmodule KiwiCodec.RustlerGenerator.Name do
   @spec field_name(String.t()) :: String.t()
   def field_name(name), do: Macro.underscore(name)
 
+  @doc """
+  Returns the snake_case Rust identifier for a schema name. Schema names are identifiers, and
+  a name that is not, as a schema decoded from binary may hold, fails where it is rendered.
+  """
   @spec rust_identifier(String.t()) :: String.t()
-  def rust_identifier(name) do
-    name
-    |> Macro.underscore()
-    |> String.replace(~r/[^a-zA-Z0-9_]/, "_")
-  end
+  def rust_identifier(name), do: Macro.underscore(name)
 
   defp decoder_base(name), do: "decode_#{rust_identifier(name)}"
 

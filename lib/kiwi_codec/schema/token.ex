@@ -3,9 +3,16 @@ defmodule KiwiCodec.Schema.Token do
   Source token with line and column information for schema parse errors.
   """
 
-  @type t :: %__MODULE__{text: String.t(), line: pos_integer(), column: pos_integer()}
+  @type kind :: :identifier | :integer | :symbol | :eof
 
-  defstruct text: "", line: 1, column: 1
+  @type t :: %__MODULE__{
+          kind: kind() | nil,
+          text: String.t(),
+          line: pos_integer(),
+          column: pos_integer()
+        }
+
+  defstruct kind: nil, text: "", line: 1, column: 1
 
   @spec parse_error!(t(), String.t()) :: no_return()
   def parse_error!(%__MODULE__{} = token, message) do

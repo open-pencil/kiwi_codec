@@ -1,5 +1,52 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `KiwiCodec.RustlerGenerator.Decoder` documents the `Decoder` generated
+  decoders read with, and ships `decoder.rs`, a complete one. The generator
+  reads its method signatures unless `:decoder_sources` names another
+  `Decoder`, so every feature knows which reads return a `NifResult`.
+- `KiwiCodec.Schema.Token` has a `kind`: `:identifier`, `:integer`,
+  `:symbol`, or `:eof`.
+
+### Changed
+
+- The schema tokenizer reads with binary patterns rather than a regular
+  expression, and is about 14 times faster on Figma's schema. Tokens,
+  positions, and errors are unchanged.
+- Skip and sparse helpers are always built from `Decoder` metadata. Without
+  `:decoder_sources`, they used to come from a separate set of helpers that
+  did not know which reads could fail.
+- Item macro rows in generated Rust separate their values with commas, as
+  RustQ 1.0.0-rc.14 writes them.
+- Records name a definition whose name is a Rust keyword with a raw
+  identifier, such as `kiwi_records::r#type`, rather than appending `_` from a
+  list of keywords that missed `gen`, `try`, and others.
+- Generated Rust builds on rustler 0.37 to 0.39. It used to call
+  `rustler::wrapper`, which rustler 0.39 removed.
+- Require RustQ 1.0.0-rc.14 for code generation.
+
+### Removed
+
+- `RustlerGenerator.RustExpr.ident/1` and `indent/2`, and
+  `RustlerGenerator.Skip.field_expr/2`. `RustExpr.primitive/1` returns RustQ
+  AST rather than Rust source.
+
+### Fixed
+
+- The `:full` feature, the default, generates Rust that compiles and decodes
+  as `KiwiCodec.decode/2` does. Its entrypoints moved the decoder they then
+  finished, its message macro called an undefined function, its reads were
+  not propagated with `?`, its strings were read without `env`, and a float
+  that is infinite or NaN raised instead of decoding to an atom.
+- Generating both sparse and skip decoders without `:decoder_sources` defined
+  `kiwi_skip_descriptor_kind` twice.
+- A schema name that is not a Rust identifier fails where it is rendered,
+  rather than having its other characters replaced with `_`, which could give
+  two names the same Rust name.
+
 ## v0.4.0 - 2026-10-23
 
 - Add the `:unknown_fields` Rustler generator option. `:runtime_schema` makes

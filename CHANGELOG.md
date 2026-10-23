@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0 - 2026-10-22
+## v0.4.0 - 2026-10-23
 
 - Add the `:unknown_fields` Rustler generator option. `:runtime_schema` makes
   generated message decoders skip fields the compiled schema does not define,
@@ -22,7 +22,7 @@
   `KiwiCodec.RustlerGenerator.Records`.
 - Sparse decoders intern their module and field-name atoms once instead of for
   every map they build, which took two thirds of the time decoding large files.
-- Require RustQ 1.0.0-rc.12 for code generation.
+- Require RustQ 1.0.0-rc.13 for code generation.
 - Rename the Rustler generator's skip, sparse, and full decoder helpers by
   family: `RustlerGenerator.SkipHelpers`, `SkipValueHelpers`, and
   `SkipDescriptor` are `RustlerGenerator.Skip.Helpers`, `Skip.ValueHelpers`,

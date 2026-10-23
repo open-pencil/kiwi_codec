@@ -23,9 +23,9 @@ if Code.ensure_loaded?(RustQ) do
     @typedoc "The Rust `KiwiSkipFn`: skips one value of a type."
     @type kiwi_skip_fn :: R.raw(:"fn(&mut Decoder<'_>) -> NifResult<()>")
 
-    @typedoc "The Rust `KiwiSkipKind`: how a field's value is skipped, once, repeated, or as bytes."
-    @type kiwi_skip_kind ::
-            R.enum(one: [kiwi_skip_fn()], repeated: [kiwi_skip_fn()], bytes: [])
+    # The Rust `KiwiSkipKind`: how a field's value is skipped, once, repeated, or as bytes.
+    @typep kiwi_skip_kind ::
+             R.enum(one: [kiwi_skip_fn()], repeated: [kiwi_skip_fn()], bytes: [])
 
     @typedoc "The Rust `KiwiSkipField`: a message field id and how to skip its value."
     @type kiwi_skip_field :: %{
@@ -104,7 +104,7 @@ if Code.ensure_loaded?(RustQ) do
       end
     end
 
-    @spec kiwi_skip_descriptor_kind(R.bool(), R.bool(), R.path(:KiwiSkipFn)) ::
+    @spec kiwi_skip_descriptor_kind(boolean(), boolean(), R.path(:KiwiSkipFn)) ::
             R.path(:KiwiSkipKind)
     defrust kiwi_skip_descriptor_kind(repeated, bytes, skip) do
       if bytes do

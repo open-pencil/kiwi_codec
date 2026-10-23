@@ -1,16 +1,17 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator do
     @moduledoc """
-    Generates Rustler decoder code from Kiwi schemas for RustQ manifests.
+    Generates Rust that decodes Kiwi data for a schema inside a Rustler NIF.
 
-    This is an experimental bridge for optional native backends. It generates a
-    complete Rust source file for schema-dependent decoder functions and NIF
-    entrypoints; `rustq.exs` owns writing and freshness checks.
+    `source/2` returns a complete Rust source file: decoders for the schema's
+    definitions, the helpers they share, and NIF entrypoints. Call it from
+    `rustq.exs`, where `mix rustq.gen` writes the file and `mix rustq.gen --check`
+    keeps it fresh. The crate provides the `Decoder<'a>` the generated code reads
+    with; `KiwiCodec.RustlerGenerator.Decoder` describes it and ships a complete
+    one.
 
-    The generated source includes the Rustler imports, RustQ Rustler term helpers,
-    schema decoders, and requested entrypoints. The caller provides the `Decoder<'a>`
-    they read with; `KiwiCodec.RustlerGenerator.Decoder` describes it and ships a
-    complete one.
+    The generator needs RustQ, an optional dependency, and exists only where RustQ
+    is available. [Native decoders](native-decoders.md) covers each feature.
     """
 
     alias KiwiCodec.RustlerGenerator.Definition

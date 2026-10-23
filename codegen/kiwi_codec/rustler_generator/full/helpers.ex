@@ -47,7 +47,7 @@ if Code.ensure_loaded?(RustQ) do
     @type kiwi_full_field :: %{
             required(:id) => R.u32(),
             required(:index) => R.usize(),
-            required(:repeated) => R.bool(),
+            required(:repeated) => boolean(),
             required(:decode) => kiwi_full_decode_fn()
           }
 

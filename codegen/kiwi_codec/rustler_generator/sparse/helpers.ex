@@ -93,13 +93,13 @@ if Code.ensure_loaded?(RustQ) do
         @type kiwi_sparse_field :: %{
                 required(:id) => R.u32(),
                 required(:name) => R.raw(:"&'static str"),
-                required(:repeated) => R.bool(),
+                required(:repeated) => boolean(),
                 required(:decode) => R.path(:KiwiSparseDecodeFn)
               }
 
         @type kiwi_sparse_struct_field :: %{
                 required(:name) => R.raw(:"&'static str"),
-                required(:repeated) => R.bool(),
+                required(:repeated) => boolean(),
                 required(:decode) => R.path(:KiwiSparseDecodeFn)
               }
 
@@ -461,7 +461,7 @@ if Code.ensure_loaded?(RustQ) do
 
     defp quote_skip_descriptor_kind do
       quote do
-        @spec kiwi_skip_descriptor_kind(R.bool(), R.bool(), R.path(:KiwiSkipFn)) ::
+        @spec kiwi_skip_descriptor_kind(boolean(), boolean(), R.path(:KiwiSkipFn)) ::
                 R.path(:KiwiSkipKind)
         defrust kiwi_skip_descriptor_kind(repeated, bytes, skip) do
           non_bytes_kind =

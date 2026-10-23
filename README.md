@@ -132,17 +132,15 @@ end
 `entrypoints: ["Node"]` generates a `decode_node` NIF that returns the same
 structs `KiwiCodec.decode/2` does. Other features generate sparse maps of the
 fields present, skip functions, native records Rust code can work with, and
-decoders that skip fields the compiled schema lacks; see
-`KiwiCodec.RustlerGenerator.source/2`.
-
-The crate provides the `Decoder` the generated code reads with.
-`KiwiCodec.RustlerGenerator.Decoder` describes it and ships `decoder.rs`, a
-complete one to copy. KiwiCodec's tests build every feature against it, load the
-result as NIFs, and check what it decodes against `KiwiCodec.decode/2`. The
-[generator architecture](https://kiwi-codec.hexdocs.pm/rustler-generator-architecture.html)
-guide covers how the generated Rust stays small for large schemas.
+decoders that skip fields the compiled schema lacks. The crate provides the
+`Decoder` the generated code reads with; KiwiCodec ships a complete one to copy.
+[Native decoders](https://kiwi-codec.hexdocs.pm/native-decoders.html) covers
+each feature, entrypoints, and the `Decoder`.
 
 ## Development
+
+See [Internals](guides/internals.md) for how the codec and the generator are put
+together, and the checks to run when changing the generator.
 
 ```sh
 mix deps.get

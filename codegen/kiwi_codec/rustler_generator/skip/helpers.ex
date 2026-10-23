@@ -89,8 +89,8 @@ if Code.ensure_loaded?(RustQ) do
                 }
 
           @type kiwi_skip_struct_field :: %{
-                  required(:repeated) => R.bool(),
-                  required(:bytes) => R.bool(),
+                  required(:repeated) => boolean(),
+                  required(:bytes) => boolean(),
                   required(:skip) => kiwi_skip_fn()
                 }
         end

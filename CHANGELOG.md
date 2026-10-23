@@ -17,6 +17,10 @@
 
 ### Changed
 
+- The docs have a Native decoders guide covering each generator feature,
+  entrypoints, and the `Decoder`. The generator architecture guide is now
+  Internals, for people changing KiwiCodec, and the module groups separate the
+  public API from internals.
 - The schema tokenizer reads with binary patterns rather than a regular
   expression, and is about 14 times faster on Figma's schema. Tokens,
   positions, and errors are unchanged.

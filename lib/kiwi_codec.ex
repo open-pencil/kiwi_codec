@@ -1,10 +1,15 @@
 defmodule KiwiCodec do
   @moduledoc """
-  Pure Elixir codec for Kiwi schema binary messages.
+  Encodes and decodes Kiwi messages as Elixir structs.
 
-  Kiwi is a compact schema-driven format with message, struct, enum, and primitive
-  encodings that differ from Protocol Buffers. This package is intentionally
-  generic; product-specific schemas can live in companion packages.
+  `use KiwiCodec, kind: :message`, `:struct`, or `:enum` defines a module for a
+  schema definition with the `KiwiCodec.DSL` macros, and `mix kiwi.gen` or
+  `compile_schema!/2` generates such modules from a schema. `encode/1` and
+  `decode/3` convert their structs to and from Kiwi binaries.
+
+  Data written with a newer schema decodes when `decode/3` is given that schema:
+  fields the modules do not define are skipped. `KiwiCodec.SchemaInterpreter`
+  works without modules, for schemas loaded at runtime.
   """
 
   defmacro __using__(opts) do

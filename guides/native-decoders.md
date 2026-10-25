@@ -12,7 +12,7 @@ The generator needs RustQ, an optional dependency of KiwiCodec. Add it where you
 generate, usually only in development and test:
 
 ```elixir
-{:rustq, "~> 1.0.0-rc.16", only: [:dev, :test], runtime: false}
+{:rustq, "~> 1.0.0-rc.17", only: [:dev, :test], runtime: false}
 ```
 
 Generate from `rustq.exs`. `mix rustq.gen` writes the file, and

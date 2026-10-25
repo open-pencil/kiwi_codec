@@ -1,6 +1,6 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.Records do
-    use RustQ.Meta, provides: ["templates/records_runtime.rs"]
+    use RustQ.Meta
 
     @moduledoc """
     Generates native Kiwi records: decoded values Rust code can read, change, and share without

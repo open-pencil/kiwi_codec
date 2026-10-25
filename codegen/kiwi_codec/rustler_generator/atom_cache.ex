@@ -1,6 +1,6 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.AtomCache do
-    use RustQ.Meta, provides: ["templates/atom_cache.rs"]
+    use RustQ.Meta
 
     @moduledoc """
     Interns the atoms generated sparse decoders put in every map: the module name, the

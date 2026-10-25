@@ -49,10 +49,14 @@ The generator is organized as a small pipeline:
 This split keeps schema logic in Elixir while avoiding thousands of repeated
 expanded Rust function bodies.
 
-Three pieces are shared by every schema and written as Rust under `templates/`:
-the record runtime, the runtime schema that skips unknown fields, and the atom
-cache. They are ordinary Rust APIs, documented for the Rust code that uses
-them, rather than repetitive decoder shapes.
+Three pieces are shared by every schema and written as Rust: the record
+runtime, the runtime schema that skips unknown fields, and the atom cache. They
+are ordinary Rust APIs, documented for the Rust code that uses them, rather than
+repetitive decoder shapes. The record runtime and atom cache sit beside the
+modules that provide them, `records.rs` beside `records.ex`, so RustQ knows
+their signatures and RustQ code elsewhere names the module rather than the file.
+The runtime schema is under `templates/`, since `UnknownFields` emits it only in
+one mode.
 
 ### Compact RustQ macro boundary
 

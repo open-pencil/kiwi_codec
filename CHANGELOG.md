@@ -7,8 +7,7 @@
 - `KiwiCodec.RustlerGenerator.Records` provides the record runtime to RustQ.
   RustQ code that works with records names the module through `alias` and
   writes `Records.kiwi_record()` in its specs, instead of reading the runtime's
-  Rust file from the dependency's directory. The runtime is `records.rs`, beside
-  the module. This needs RustQ 1.0.0-rc.16.
+  Rust file from the dependency's directory. The runtime is `templates/records.rs`. This needs RustQ 1.0.0-rc.16.
 
 ## v0.5.0 - 2026-10-24
 

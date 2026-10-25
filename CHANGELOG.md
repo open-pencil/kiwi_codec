@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The constants naming each definition's fields and enum values are associated
+  constants of a type per definition, `kiwi_records::NodeChange::FILL_PAINTS`,
+  instead of a module per definition, `kiwi_records::node_change::FILL_PAINTS`.
+  Rust code naming them changes accordingly.
+- RustQ code reaches them through `KiwiCodec.RustlerGenerator.Records`:
+  `Records.NodeChange.FILL_PAINTS` and `Records.Definitions.NODE_CHANGE`, in a
+  module that aliases it, with no `defrustmod` of its own. This needs RustQ
+  1.0.0-rc.17.
+
 ## v0.5.1 - 2026-10-25
 
 ### Changed

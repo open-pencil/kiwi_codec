@@ -2,6 +2,9 @@ if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.Records do
     use RustQ.Meta
 
+    defrustmod(__MODULE__, as: [:kiwi_records])
+    defrustmod(Definitions, as: [:kiwi_record_definitions])
+
     @moduledoc """
     Generates native Kiwi records: decoded values Rust code can read, change, and share without
     building Elixir terms, and encode later as the sparse maps generated decoders return.
@@ -11,16 +14,19 @@ if Code.ensure_loaded?(RustQ) do
     code that works with records:
 
         kiwi_record_definitions::NODE_CHANGE
-        kiwi_records::node_change::FILL_PAINTS
-        kiwi_records::node_phase::REMOVED
+        kiwi_records::NodeChange::FILL_PAINTS
+        kiwi_records::NodePhase::REMOVED
 
     RustQ code that works with records names this module through `alias`, and RustQ imports the
-    runtime's functions, methods, and types from it:
+    runtime's functions, methods, and types from it, and the constants' modules:
 
         alias KiwiCodec.RustlerGenerator.Records
 
-        @spec definition(R.ref(Records.kiwi_record())) :: R.u32()
-        defrust definition(record), do: record.definition()
+        @spec fill_paints(R.ref(Records.kiwi_record())) :: R.bool()
+        defrust fill_paints(record), do: record.has(Records.NodeChange.FILL_PAINTS)
+
+    `Records.Definitions.NODE_CHANGE` names a definition, so a schema definition named
+    `Definitions` is reached only through its Rust path.
 
     Decoding uses the `Decoder` methods `KiwiCodec.RustlerGenerator.Decoder` lists for records.
     Unknown message fields go through `kiwi_unknown_field`; see
@@ -30,6 +36,7 @@ if Code.ensure_loaded?(RustQ) do
     alias KiwiCodec.RustlerGenerator.Name
     alias KiwiCodec.Schema.Enum, as: SchemaEnum
     alias KiwiCodec.Schema.Struct
+    alias RustQ.Rust.AST
     alias RustQ.Rust.AST.Builder, as: A
     alias RustQ.Rust.Identifier
 
@@ -110,13 +117,17 @@ if Code.ensure_loaded?(RustQ) do
         ),
         A.module(
           :kiwi_records,
-          Enum.map(definitions, fn definition ->
-            A.module(
-              module_identifier(definition.name),
-              Enum.map(fields(definition), &field_constant/1) ++
-                Enum.map(variants(definition), &variant_constant/1),
-              vis: :pub
-            )
+          Enum.flat_map(definitions, fn definition ->
+            name = definition_type(definition.name)
+
+            [
+              %AST.Struct{name: name, vis: :pub},
+              A.impl(name,
+                items:
+                  Enum.map(fields(definition), &field_constant/1) ++
+                    Enum.map(variants(definition), &variant_constant/1)
+              )
+            ]
           end),
           vis: :pub
         )
@@ -133,7 +144,9 @@ if Code.ensure_loaded?(RustQ) do
       A.const(name, :u32, A.lit(variant.value), vis: :pub)
     end
 
-    # A keyword, such as the module for a `Type` definition, renders as a raw identifier.
-    defp module_identifier(name), do: name |> Name.rust_identifier() |> Identifier.atom!()
+    # Constants grouped on a type, as `kiwi_records::NodeChange::GUID`, read as Elixir aliases do:
+    # `Records.NodeChange.GUID`.
+    defp definition_type(name),
+      do: name |> Name.rust_identifier() |> Macro.camelize() |> Identifier.atom!()
   end
 end

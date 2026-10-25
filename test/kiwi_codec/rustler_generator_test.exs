@@ -267,16 +267,16 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
     crate(name, module, schema, opts, Enum.join(rust ++ record_constants(features), "\n\n"), nifs)
   end
 
-  # Names that are Rust keywords, such as the `Type` definition's module, must still compile.
+  # Names that are Rust keywords in snake case, such as the `Type` definition's, must still compile.
   defp record_constants(features) do
     if :records in features do
       [
         """
         const _: [u32; 4] = [
             kiwi_record_definitions::TYPE,
-            kiwi_records::r#type::GEN,
-            kiwi_records::r#type::MATCH,
-            kiwi_records::kind::TYPE,
+            kiwi_records::Type::GEN,
+            kiwi_records::Type::MATCH,
+            kiwi_records::Kind::TYPE,
         ];
         """
       ]

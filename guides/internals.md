@@ -52,7 +52,11 @@ expanded Rust function bodies.
 Three pieces are shared by every schema and written as Rust under `templates/`:
 the record runtime, the runtime schema that skips unknown fields, and the atom
 cache. They are ordinary Rust APIs, documented for the Rust code that uses
-them, rather than repetitive decoder shapes.
+them, rather than repetitive decoder shapes. The record runtime and atom cache
+are named after the modules that provide them, `templates/records.rs` for
+`records.ex`, so RustQ knows their signatures and RustQ code elsewhere names the
+module rather than the file. `UnknownFields` emits the runtime schema only in
+one mode, so it reads that file itself.
 
 ### Compact RustQ macro boundary
 

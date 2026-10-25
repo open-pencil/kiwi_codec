@@ -1,5 +1,7 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.Records do
+    use RustQ.Meta
+
     @moduledoc """
     Generates native Kiwi records: decoded values Rust code can read, change, and share without
     building Elixir terms, and encode later as the sparse maps generated decoders return.
@@ -12,6 +14,14 @@ if Code.ensure_loaded?(RustQ) do
         kiwi_records::node_change::FILL_PAINTS
         kiwi_records::node_phase::REMOVED
 
+    RustQ code that works with records names this module through `alias`, and RustQ imports the
+    runtime's functions, methods, and types from it:
+
+        alias KiwiCodec.RustlerGenerator.Records
+
+        @spec definition(R.ref(Records.kiwi_record())) :: R.u32()
+        defrust definition(record), do: record.definition()
+
     Decoding uses the `Decoder` methods `KiwiCodec.RustlerGenerator.Decoder` lists for records.
     Unknown message fields go through `kiwi_unknown_field`; see
     `KiwiCodec.RustlerGenerator.UnknownFields`.
@@ -23,9 +33,6 @@ if Code.ensure_loaded?(RustQ) do
     alias RustQ.Rust.AST.Builder, as: A
     alias RustQ.Rust.Identifier
 
-    @template Path.expand("templates/records_runtime.rs", __DIR__)
-    @external_resource @template
-
     @primitives ~w(bool byte int uint float string int64 uint64)
 
     @kinds %{SchemaEnum => 0, Struct => 1, KiwiCodec.Schema.Message => 2}
@@ -36,11 +43,8 @@ if Code.ensure_loaded?(RustQ) do
       indexes =
         definitions |> Enum.with_index() |> Map.new(fn {def, index} -> {def.name, index} end)
 
-      [
-        RustQ.Rust.fragment(:item, @template |> File.read!() |> String.trim_trailing()),
-        definition_table(definitions, indexes, module_prefix),
-        constants(definitions, indexes)
-      ]
+      __rustq_items__() ++
+        [definition_table(definitions, indexes, module_prefix), constants(definitions, indexes)]
     end
 
     defp definition_table(definitions, indexes, module_prefix) do

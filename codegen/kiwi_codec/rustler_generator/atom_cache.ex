@@ -1,6 +1,6 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.AtomCache do
-    use RustQ.Meta
+    use RustQ.Meta, provides: ["templates/atom_cache.rs"]
 
     @moduledoc """
     Interns the atoms generated sparse decoders put in every map: the module name, the
@@ -11,21 +11,8 @@ if Code.ensure_loaded?(RustQ) do
     thread.
     """
 
-    alias RustQ.Type, as: R
-
-    @template Path.expand("templates/atom_cache.rs", __DIR__)
-    @external_resource @template
-
     @doc "Returns the Rust items defining `kiwi_atom`."
     @spec fragments() :: [RustQ.Rust.Fragment.t()]
-    def fragments do
-      [RustQ.Rust.fragment(:item, @template |> File.read!() |> String.trim_trailing())]
-    end
-
-    # Typed declaration for callers; the emitted definition is the template.
-    @spec kiwi_atom(R.path(:Env, R.lifetime(:_)), R.raw(:"&'static str")) :: R.path(:Atom)
-    defrust kiwi_atom(env, name) do
-      Atom.from_str(env, name).unwrap()
-    end
+    def fragments, do: __rustq_items__()
   end
 end

@@ -112,6 +112,7 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
   alias KiwiCodec.Schema.Binary
   alias KiwiCodec.SchemaInterpreter
   alias KiwiCodec.Test.NativeCrate
+  alias KiwiCodec.Test.NodeReader
 
   @moduletag timeout: 600_000
 
@@ -267,7 +268,8 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
     crate(name, module, schema, opts, Enum.join(rust ++ record_constants(features), "\n\n"), nifs)
   end
 
-  # Names that are Rust keywords in snake case, such as the `Type` definition's, must still compile.
+  # Names that are Rust keywords in snake case, such as the `Type` definition's, must still
+  # compile, as must RustQ code reaching the constants through `Records`.
   defp record_constants(features) do
     if :records in features do
       [
@@ -278,7 +280,8 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
             kiwi_records::Type::MATCH,
             kiwi_records::Kind::TYPE,
         ];
-        """
+        """,
+        NodeReader.__rustq_source__()
       ]
     else
       []

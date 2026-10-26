@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The record feature writes each definition once, as a row of one
+  `kiwi_records!` call: its fields and enum values one per line. The macro,
+  in the record runtime, expands to the definition table and the
+  `kiwi_record_definitions` and `kiwi_records` constants as before, which
+  the generator used to write out separately, one table field per line.
+  Figma's schema generates about 630 KB less Rust.
+
 ## v0.6.0 - 2026-10-25
 
 ### Changed

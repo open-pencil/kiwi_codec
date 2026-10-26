@@ -36,7 +36,6 @@ if Code.ensure_loaded?(RustQ) do
     alias KiwiCodec.RustlerGenerator.Name
     alias KiwiCodec.Schema.Enum, as: SchemaEnum
     alias KiwiCodec.Schema.Struct
-    alias RustQ.Rust.AST
     alias RustQ.Rust.AST.Builder, as: A
     alias RustQ.Rust.Identifier
 
@@ -44,49 +43,63 @@ if Code.ensure_loaded?(RustQ) do
 
     @kinds %{SchemaEnum => 0, Struct => 1, KiwiCodec.Schema.Message => 2}
 
-    @doc "Returns the record runtime, definition table, and constants for `definitions`."
+    @doc """
+    Returns the record runtime, and the `kiwi_records!` call declaring `definitions`' table and
+    constants, one row per definition.
+    """
     @spec fragments([KiwiCodec.Schema.definition()], String.t()) :: [term()]
     def fragments(definitions, module_prefix) do
       indexes =
         definitions |> Enum.with_index() |> Map.new(fn {def, index} -> {def.name, index} end)
 
-      __rustq_items__() ++
-        [definition_table(definitions, indexes, module_prefix), constants(definitions, indexes)]
+      rows = Enum.map(definitions, &definition_row(&1, indexes, module_prefix))
+      __rustq_items__() ++ [A.macro_item_token_call(:kiwi_records, [rows, "\n"])]
     end
 
-    defp definition_table(definitions, indexes, module_prefix) do
-      A.static(
-        :KIWI_RECORD_DEFINITIONS,
-        {:ref, {:slice, :KiwiRecordDefinition}},
-        A.slice(Enum.map(definitions, &definition(&1, indexes, module_prefix)))
-      )
+    defp definition_row(definition, indexes, module_prefix) do
+      [
+        "\n    ",
+        tokens([
+          definition_type(definition.name),
+          constant_name(definition.name),
+          A.lit(Map.fetch!(indexes, definition.name)),
+          A.lit(Map.fetch!(@kinds, definition.__struct__)),
+          A.lit(definition.name),
+          A.lit(Name.module_name(module_prefix, definition.name))
+        ]),
+        " ",
+        rows(Enum.map(fields(definition), &field_row(&1, indexes))),
+        " ",
+        rows(Enum.map(variants(definition), &variant_row/1)),
+        ";"
+      ]
     end
 
-    defp definition(definition, indexes, module_prefix) do
-      A.struct_expr(:KiwiRecordDefinition,
-        kind: A.lit(Map.fetch!(@kinds, definition.__struct__)),
-        name: A.lit(definition.name),
-        module: A.lit(Name.module_name(module_prefix, definition.name)),
-        fields: A.slice(definition |> fields() |> Enum.map(&field(&1, indexes))),
-        variants: A.slice(definition |> variants() |> Enum.map(&variant/1))
-      )
+    defp field_row(field, indexes) do
+      tokens([
+        constant_name(field.name),
+        A.lit(field.id),
+        A.lit(Name.field_name(field.name)),
+        A.lit(type_index(field.type, indexes)),
+        A.lit(field.array?)
+      ])
     end
 
-    defp field(field, indexes) do
-      A.struct_expr(:KiwiRecordField,
-        id: A.lit(field.id),
-        name: A.lit(Name.field_name(field.name)),
-        type_index: A.lit(type_index(field.type, indexes)),
-        array: A.lit(field.array?)
-      )
+    defp variant_row(variant) do
+      tokens([
+        constant_name(variant.name),
+        A.lit(variant.value),
+        A.lit(Macro.underscore(variant.name))
+      ])
     end
 
-    defp variant(variant) do
-      A.struct_expr(:KiwiRecordVariant,
-        value: A.lit(variant.value),
-        name: A.lit(Macro.underscore(variant.name))
-      )
-    end
+    defp rows([]), do: "[]"
+    defp rows(rows), do: ["[", Enum.map(rows, &["\n        ", &1, ";"]), "\n    ]"]
+
+    defp tokens(tokens), do: Enum.intersperse(tokens, " ")
+
+    defp constant_name(name),
+      do: name |> Name.rust_identifier() |> String.upcase() |> Identifier.atom!()
 
     # Primitive types are bitwise-negated indexes, definitions their table index.
     defp type_index(type, indexes) do
@@ -104,48 +117,9 @@ if Code.ensure_loaded?(RustQ) do
     defp variants(%SchemaEnum{variants: variants}), do: Enum.sort_by(variants, & &1.value)
     defp variants(_definition), do: []
 
-    # Definition indexes live apart from field and enum constants, which take any schema name.
-    defp constants(definitions, indexes) do
-      [
-        A.module(
-          :kiwi_record_definitions,
-          Enum.map(definitions, fn definition ->
-            name = definition.name |> Name.rust_identifier() |> String.upcase()
-            A.const(name, :u32, A.lit(Map.fetch!(indexes, definition.name)), vis: :pub)
-          end),
-          vis: :pub
-        ),
-        A.module(
-          :kiwi_records,
-          Enum.flat_map(definitions, fn definition ->
-            name = definition_type(definition.name)
-
-            [
-              %AST.Struct{name: name, vis: :pub},
-              A.impl(name,
-                items:
-                  Enum.map(fields(definition), &field_constant/1) ++
-                    Enum.map(variants(definition), &variant_constant/1)
-              )
-            ]
-          end),
-          vis: :pub
-        )
-      ]
-    end
-
-    defp field_constant(field) do
-      name = field.name |> Name.rust_identifier() |> String.upcase()
-      A.const(name, :u32, A.lit(field.id), vis: :pub)
-    end
-
-    defp variant_constant(variant) do
-      name = variant.name |> Name.rust_identifier() |> String.upcase()
-      A.const(name, :u32, A.lit(variant.value), vis: :pub)
-    end
-
     # Constants grouped on a type, as `kiwi_records::NodeChange::GUID`, read as Elixir aliases do:
-    # `Records.NodeChange.GUID`.
+    # `Records.NodeChange.GUID`. Definition indexes live apart, in `kiwi_record_definitions`,
+    # since field and enum constants take any schema name.
     defp definition_type(name),
       do: name |> Name.rust_identifier() |> Macro.camelize() |> Identifier.atom!()
   end

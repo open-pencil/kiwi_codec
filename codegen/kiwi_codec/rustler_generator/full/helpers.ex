@@ -55,26 +55,22 @@ if Code.ensure_loaded?(RustQ) do
           cached_struct_keys(
             env,
             ref(keys_static),
-            ref(
-              array([
-                repeat keys do
-                  key
-                end
-              ])
-            )
+            [
+              repeat keys do
+                key
+              end
+            ]
           )
 
         make_struct_from_arrays(
           env,
           keys,
-          ref(
-            array([
-              module_atom.to_term(env),
-              repeat fields do
-                field_expr.encode(env)
-              end
-            ])
-          )
+          [
+            module_atom.to_term(env),
+            repeat fields do
+              field_expr.encode(env)
+            end
+          ]
         )
       end
     end
@@ -109,13 +105,11 @@ if Code.ensure_loaded?(RustQ) do
           cached_struct_keys(
             env,
             ref(keys_static),
-            ref(
-              array([
-                repeat keys do
-                  key
-                end
-              ])
-            )
+            [
+              repeat keys do
+                key
+              end
+            ]
           )
 
         values = default_struct_values(env, module_atom, keys.len() - 1)
@@ -161,11 +155,11 @@ if Code.ensure_loaded?(RustQ) do
       field_id = decoder.read_var_uint()
 
       if field_id == 0 do
-        make_struct_from_arrays(env, keys, ref(values))
+        make_struct_from_arrays(env, keys, values)
       else
         case fields.binary_search_by_key(field_id, fn field -> field.id end) do
           {:ok, index} ->
-            field = fields.get(index).unwrap()
+            field = index(fields, index)
 
             assign!(
               index(values, field.index),

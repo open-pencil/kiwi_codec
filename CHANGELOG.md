@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Generated helpers pass plain lists and indexed items and let RustQ borrow
+  them. This needs RustQ 1.0.0-rc.21.
+
 ## v0.7.0 - 2026-10-26
 
 ### Removed

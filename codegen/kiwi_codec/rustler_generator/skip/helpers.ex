@@ -106,7 +106,7 @@ if Code.ensure_loaded?(RustQ) do
         :ok
       else
         case fields.binary_search_by_key(field_id, fn field -> field.id end) do
-          {:ok, index} -> kiwi_skip_kind(decoder, ref(index(fields, index).kind))
+          {:ok, index} -> kiwi_skip_kind(decoder, index(fields, index).kind)
           {:error, _index} -> kiwi_unknown_field(decoder, definition_name, field_id)
         end
 

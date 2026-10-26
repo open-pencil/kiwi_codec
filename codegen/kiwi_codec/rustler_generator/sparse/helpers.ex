@@ -119,7 +119,7 @@ if Code.ensure_loaded?(RustQ) do
       else
         case fields.binary_search_by_key(field_id, fn field -> field.id end) do
           {:ok, index} ->
-            field = ref(index(fields, index))
+            field = index(fields, index)
             keys.push(kiwi_atom(env, field.name).encode(env))
             values.push(kiwi_field_value(env, decoder, field.repeated, field.decode))
 

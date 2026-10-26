@@ -105,7 +105,6 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
   @moduletag timeout: 600_000
 
   @prefix "KiwiCodec.NativeTest.Schema"
-  @runtime KiwiCodec.RustlerGenerator.Decoder.source()
 
   @schema """
   enum Kind {

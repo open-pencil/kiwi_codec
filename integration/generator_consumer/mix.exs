@@ -10,7 +10,7 @@ defmodule KiwiCodecGeneratorConsumer.MixProject do
   defp deps do
     [
       {:kiwi_codec, path: System.fetch_env!("KIWI_CODEC_PACKAGE_PATH")},
-      {:rustq, "~> 1.0.0-rc.19", only: [:dev, :test], runtime: false}
+      {:rustq, "~> 1.0.0-rc.21", only: [:dev, :test], runtime: false}
     ]
   end
 end

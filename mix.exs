@@ -64,7 +64,7 @@ defmodule KiwiCodec.MixProject do
   # RUSTQ_PATH points at a local RustQ checkout, to try changes to it here.
   defp rustq_dep do
     case System.get_env("RUSTQ_PATH") do
-      nil -> {:rustq, "~> 1.0.0-rc.17", optional: true, runtime: false}
+      nil -> {:rustq, "~> 1.0.0-rc.19", optional: true, runtime: false}
       path -> {:rustq, path: path, optional: true, runtime: false, override: true}
     end
   end

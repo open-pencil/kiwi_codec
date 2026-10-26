@@ -71,21 +71,9 @@ defmodule KiwiCodec.RustlerGeneratorTest do
     end
   end
 
-  test "reads which Decoder methods are fallible from the decoder sources" do
-    source =
-      RustlerGenerator.source(KiwiCodec.parse_schema!("message A { int64 offset = 1; }"),
-        definitions: ["A"],
-        features: [:skip],
-        module_prefix: "Example",
-        decoder_sources: ["test/fixtures/infallible_decoder.rs"]
-      )
-
-    assert source =~ "decoder.read_var_int64();"
-    assert source =~ "decoder.read_var_uint()?;"
-  end
-
-  test "rejects unknown features and unknown-fields modes" do
+  test "rejects unknown options, features, and unknown-fields modes" do
     for {opts, message} <- [
+          {[decoder_sources: ["decoder.rs"]], ~r/unknown keys \[:decoder_sources\]/},
           {[features: [:compact]], ~r/unknown Rustler generator feature :compact/},
           {[unknown_fields: :ignore], ~r/expected :unknown_fields/}
         ] do
@@ -205,19 +193,14 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
         "",
         for(name <- @definitions, do: {:"decode_#{Macro.underscore(name)}", 1})
       ),
-      wrapped_crate("kiwi_sparse_skip", __MODULE__.SparseSkip, schema,
-        features: [:sparse, :skip]
-      ),
+      wrapped_crate("kiwi_sparse", __MODULE__.SparseOnly, schema, features: [:sparse]),
       wrapped_crate("kiwi_descriptor", __MODULE__.Descriptor, schema,
         features: [:sparse, :skip, :records],
-        sparse_messages: :descriptor,
-        decoder_sources: [@runtime],
         unknown_fields: :runtime_schema
       ),
       wrapped_crate("kiwi_skip", __MODULE__.SkipOnly, schema, features: [:skip]),
       wrapped_crate("kiwi_full_sparse", __MODULE__.FullSparse, schema,
-        features: [:full, :sparse, :skip],
-        decoder_sources: [@runtime]
+        features: [:full, :sparse, :skip]
       )
     ])
 
@@ -360,7 +343,7 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
 
   describe "sparse decoders" do
     test "return the fields present, as the schema interpreter reads them" do
-      for module <- [__MODULE__.SparseSkip, __MODULE__.Descriptor, __MODULE__.FullSparse],
+      for module <- [__MODULE__.SparseOnly, __MODULE__.Descriptor, __MODULE__.FullSparse],
           {definition, value} <- samples() do
         binary = encode(definition, value)
         nif = :"sparse_#{Macro.underscore(definition)}"
@@ -373,12 +356,7 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
 
   describe "skip decoders" do
     test "consume exactly one value" do
-      for module <- [
-            __MODULE__.SkipOnly,
-            __MODULE__.SparseSkip,
-            __MODULE__.Descriptor,
-            __MODULE__.FullSparse
-          ],
+      for module <- [__MODULE__.SkipOnly, __MODULE__.Descriptor, __MODULE__.FullSparse],
           {definition, value} <- samples() do
         nif = :"skip_#{Macro.underscore(definition)}"
         assert nif(module, nif, [encode(definition, value), ""]) == :ok
@@ -425,7 +403,7 @@ defmodule KiwiCodec.RustlerGenerator.NativeTest do
     test "reject them without the schema", %{binary: binary} do
       for call <- [
             fn -> nif(__MODULE__.Descriptor, :sparse_node, [binary, ""]) end,
-            fn -> nif(__MODULE__.SparseSkip, :sparse_node, [binary, ""]) end
+            fn -> nif(__MODULE__.SparseOnly, :sparse_node, [binary, ""]) end
           ] do
         assert_raise ArgumentError, call
       end

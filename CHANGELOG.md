@@ -2,7 +2,24 @@
 
 ## Unreleased
 
+### Removed
+
+- The `:decoder_sources` option. Generated helpers are typed against the
+  reference `Decoder`, whose method signatures a crate's own keeps.
+- The `:sparse_messages` option. Sparse message decoders always use one table
+  of their fields, shared with skip decoders when both are generated, which is
+  what `:descriptor` did; `:match` generated the same Rust another way.
+- Unknown options raise instead of being ignored.
+
 ### Changed
+
+- The generator's helper Rust comes from ordinary RustQ modules, included whole
+  per feature, instead of modules built at generation time and lists of the
+  functions to take from them. Full and sparse decoders share their primitive
+  readers, enum decoding, and field reading, and `KiwiDecodeFn` replaces
+  `KiwiSparseDecodeFn` and `KiwiFullDecodeFn`. The skip helpers are one module,
+  `KiwiCodec.RustlerGenerator.Skip.Helpers`, which RustQ code calling them names
+  instead of `Skip.ValueHelpers`. This needs RustQ 1.0.0-rc.19.
 
 - The record feature writes each definition once, as a row of one
   `kiwi_records!` call: its fields and enum values one per line. The macro,

@@ -1,323 +1,76 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.Sparse do
     @moduledoc """
-    Generates generic sparse Kiwi schema decoders for Rustler native backends.
+    Generates sparse decoders: maps of the fields present, with `__kiwi_module__` naming the
+    generated Elixir module; see `KiwiCodec.RustlerGenerator.Sparse.Helpers`.
 
-    Sparse decoders return maps containing only fields present in the payload plus
-    a `__kiwi_module__` key identifying the generated Elixir schema module.
+    With skip decoders generated as well, a message's sparse and skip decoders come from one
+    row per field; see `KiwiCodec.RustlerGenerator.Sparse.SkipMessages`.
     """
 
+    alias KiwiCodec.RustlerGenerator.Field
     alias KiwiCodec.RustlerGenerator.Name
-    alias __MODULE__.Helpers
-    alias KiwiCodec.RustlerGenerator.Skip
+    alias KiwiCodec.RustlerGenerator.Sparse.Helpers
+    alias KiwiCodec.RustlerGenerator.Sparse.Messages
+    alias KiwiCodec.RustlerGenerator.Sparse.SkipMessages
+    alias KiwiCodec.RustlerGenerator.Values
     alias KiwiCodec.Schema.Enum, as: SchemaEnum
     alias KiwiCodec.Schema.{Message, Struct}
     alias RustQ.Meta.AST, as: MetaAST
-    alias RustQ.Rust.Identifier
 
-    @spec fragments([KiwiCodec.Schema.definition()], String.t(), map(), keyword()) :: [
+    @doc "The sparse decoders of `definitions`, sharing message rows with skip ones on `skip?`."
+    @spec fragments([KiwiCodec.Schema.definition()], String.t(), map(), boolean()) :: [
             RustQ.Rust.Fragment.t()
           ]
-    def fragments(definitions, module_prefix, definition_map, opts \\ []) do
-      full? = Keyword.get(opts, :full?, false)
-      message_mode = Keyword.get(opts, :message_mode, :match)
-
-      definitions
-      |> Enum.flat_map(fn definition ->
-        definition(definition, module_prefix, definition_map, full?, message_mode)
-        |> List.wrap()
-      end)
+    def fragments(definitions, module_prefix, definition_map, skip?) do
+      Enum.map(definitions, &decoder(&1, module_prefix, definition_map, skip?))
     end
 
-    defp definition(
-           %Struct{name: name, fields: fields},
-           module_prefix,
-           definition_map,
-           _full?,
-           _message_mode
-         ) do
-      sparse_struct_decoder(name, module_prefix, fields, definition_map)
-    end
-
-    defp definition(
-           %SchemaEnum{name: name},
-           _module_prefix,
-           _definition_map,
-           true,
-           _message_mode
-         ) do
-      sparse_enum_passthrough_function(name)
-    end
-
-    defp definition(
-           %SchemaEnum{name: name, variants: variants},
-           _module_prefix,
-           _definition_map,
-           false,
-           _message_mode
-         ) do
-      Helpers.macro_call(:kiwi_sparse_enum_decoder,
-        fn: "decode_sparse_#{Name.rust_identifier(name)}_from_decoder",
-        env: :env,
-        decoder: :decoder,
+    defp decoder(%SchemaEnum{name: name, variants: variants}, _prefix, _map, _skip?) do
+      MetaAST.macro_call!(Values, :kiwi_enum_decoder,
+        fn: Name.sparse_function(name),
         variants:
           variants
           |> Enum.sort_by(& &1.value)
-          |> Enum.map(&[variant_value: &1.value, variant_name: Macro.underscore(&1.name)])
+          |> Enum.map(&[variant_value: &1.value, variant_name: Name.field_name(&1.name)])
       )
     end
 
-    defp definition(
-           %Message{name: name, fields: fields},
-           module_prefix,
-           definition_map,
-           _full?,
-           :match
-         ) do
-      sparse_message_function(
-        name,
-        module_name(module_prefix, name),
-        fields,
-        definition_map
+    defp decoder(%Struct{name: name, fields: fields}, module_prefix, _map, _skip?) do
+      MetaAST.macro_call!(Helpers, :kiwi_sparse_struct_decoder,
+        fn: Name.sparse_function(name),
+        module: Name.module_name(module_prefix, name),
+        fields: Enum.map(fields, &Field.sparse_row/1)
       )
     end
 
-    defp definition(
-           %Message{name: name, fields: fields},
-           module_prefix,
-           definition_map,
-           _full?,
-           :descriptor_with_skip
-         ) do
-      ident = Name.rust_identifier(name)
-
-      Helpers.macro_call(:kiwi_sparse_skip_message_descriptor_decoder,
-        sparse_fn: "decode_sparse_#{ident}_from_decoder",
-        skip_fn: "skip_#{ident}_from_decoder",
-        env: :env,
-        decoder: :decoder,
-        module: module_name(module_prefix, name),
+    defp decoder(%Message{name: name, fields: fields}, module_prefix, _map, false) do
+      MetaAST.macro_call!(Messages, :kiwi_sparse_message_decoder,
+        fn: Name.sparse_function(name),
+        module: Name.module_name(module_prefix, name),
         definition: name,
-        capacity: length(fields) + 1,
+        fields: fields |> Enum.sort_by(& &1.id) |> Enum.map(&Field.sparse_row/1)
+      )
+    end
+
+    defp decoder(%Message{name: name, fields: fields}, module_prefix, definition_map, true) do
+      MetaAST.macro_call!(SkipMessages, :kiwi_sparse_skip_message_decoder,
+        sparse_fn: Name.sparse_function(name),
+        skip_fn: Name.skip_function(name),
+        module: Name.module_name(module_prefix, name),
+        definition: name,
         fields:
           fields
           |> Enum.sort_by(& &1.id)
-          |> Enum.map(&sparse_skip_descriptor_row(&1, definition_map))
+          |> Enum.map(&(Field.sparse_row(&1) ++ shared_skip_row(&1, definition_map)))
       )
     end
 
-    defp definition(
-           %Message{name: name, fields: fields},
-           module_prefix,
-           definition_map,
-           _full?,
-           :descriptor
-         ) do
-      Helpers.macro_call(:kiwi_sparse_message_descriptor_decoder,
-        fn: "decode_sparse_#{Name.rust_identifier(name)}_from_decoder",
-        env: :env,
-        decoder: :decoder,
-        module: module_name(module_prefix, name),
-        definition: name,
-        capacity: length(fields) + 1,
-        fields:
-          fields
-          |> Enum.sort_by(& &1.id)
-          |> Enum.map(&sparse_message_descriptor_row(&1, definition_map))
-      )
+    defp shared_skip_row(field, definition_map) do
+      [field_repeated: repeated?, field_bytes: bytes?, field_skip: skip] =
+        Field.skip_row(field, definition_map)
+
+      [field_skip_repeated: repeated?, field_skip_bytes: bytes?, field_skip: skip]
     end
-
-    defp sparse_struct_decoder(name, module_prefix, fields, definition_map) do
-      Helpers.macro_call(:kiwi_sparse_struct_decoder,
-        fn: "decode_sparse_#{Name.rust_identifier(name)}_from_decoder",
-        env: :env,
-        decoder: :decoder,
-        module: module_name(module_prefix, name),
-        capacity: length(fields) + 1,
-        fields: Enum.map(fields, &sparse_struct_row(&1, definition_map))
-      )
-    end
-
-    defp sparse_enum_passthrough_function(name) do
-      function = sparse_function_name(name)
-      module = sparse_enum_passthrough_module!(name)
-      module |> MetaAST.functions!([function]) |> List.first()
-    end
-
-    defp sparse_message_function(name, module_name, fields, definition_map) do
-      function = sparse_function_name(name)
-      module = sparse_message_module!(name, module_name, fields, definition_map)
-      module |> MetaAST.functions!([function]) |> List.first()
-    end
-
-    defp sparse_enum_passthrough_module!(name) do
-      module =
-        Module.concat([
-          KiwiCodec.RustlerGenerator.Generated,
-          "SparseEnumPassthrough#{:erlang.phash2(name)}"
-        ])
-
-      if Code.ensure_loaded?(module) do
-        module
-      else
-        Module.create(module, sparse_enum_passthrough_body(name), Macro.Env.location(__ENV__))
-        module
-      end
-    end
-
-    defp sparse_enum_passthrough_body(name) do
-      function = sparse_function_name(name)
-      full_function = Name.decoder_function(name)
-
-      quote do
-        use RustQ.Meta
-        alias RustQ.Type, as: R
-
-        @spec unquote(function)(
-                R.path(:Env, R.lifetime(:a)),
-                R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-              ) :: R.nif_result(term())
-        defrust unquote(function)(env, decoder) do
-          unquote(full_function)(env, decoder)
-        end
-      end
-    end
-
-    defp sparse_message_module!(name, module_name, fields, definition_map) do
-      module =
-        Module.concat([
-          KiwiCodec.RustlerGenerator.Generated,
-          "SparseMessage#{:erlang.phash2({name, module_name, Enum.map(fields, & &1.id)})}"
-        ])
-
-      if Code.ensure_loaded?(module) do
-        module
-      else
-        Module.create(
-          module,
-          sparse_message_module_body(name, module_name, fields, definition_map),
-          Macro.Env.location(__ENV__)
-        )
-
-        module
-      end
-    end
-
-    defp sparse_message_module_body(name, module_name, fields, definition_map) do
-      sparse_message_body(name, module_name, fields, definition_map)
-    end
-
-    defp sparse_message_body(name, module_name, fields, definition_map) do
-      function = sparse_function_name(name)
-
-      entries =
-        Enum.map(Enum.sort_by(fields, & &1.id), &sparse_message_field_entry(&1, definition_map))
-
-      capacity = length(fields) + 1
-
-      quote do
-        use RustQ.Meta
-        alias RustQ.Type, as: R
-
-        @spec unquote(function)(
-                R.path(:Env, R.lifetime(:a)),
-                R.mut_ref(R.path(:Decoder, R.lifetime(:_)))
-              ) :: R.nif_result(term())
-        defrust unquote(function)(env, decoder) do
-          kiwi_sparse_message_fields(
-            env,
-            decoder,
-            unquote(module_name),
-            unquote(name),
-            unquote(capacity),
-            ref(array([unquote_splicing(entries)]))
-          )
-        end
-      end
-    end
-
-    defp sparse_message_field_entry(field, definition_map) do
-      quote do
-        struct_literal(KiwiSparseField,
-          id: unquote(field.id),
-          name: unquote(Macro.underscore(field.name)),
-          repeated: unquote(sparse_repeated?(field)),
-          decode: unquote(Macro.var(sparse_decode_function(field, definition_map), nil))
-        )
-      end
-    end
-
-    defp sparse_repeated?(%{array?: true, type: "byte"}), do: false
-    defp sparse_repeated?(%{array?: array?}), do: array?
-
-    defp sparse_decode_function(%{array?: true, type: "byte"}, _definition_map),
-      do: :kiwi_sparse_bytes_value
-
-    defp sparse_decode_function(%{array?: true} = field, definition_map),
-      do: sparse_decode_function(%{field | array?: false}, definition_map)
-
-    defp sparse_decode_function(field, definition_map),
-      do:
-        field
-        |> descriptor_scalar_function(definition_map)
-        |> IO.iodata_to_binary()
-        |> Identifier.atom!()
-
-    defp sparse_struct_row(field, definition_map) do
-      [
-        field_name: Macro.underscore(field.name),
-        field_repeated: sparse_repeated?(field),
-        field_decode: sparse_decode_function(field, definition_map)
-      ]
-    end
-
-    defp sparse_message_descriptor_row(field, definition_map) do
-      [
-        field_id: field.id,
-        field_name: Macro.underscore(field.name),
-        field_repeated: sparse_repeated?(field),
-        field_decode: sparse_decode_function(field, definition_map)
-      ]
-    end
-
-    defp sparse_skip_descriptor_row(field, definition_map) do
-      {skip_repeated?, skip_bytes?, skip} = skip_descriptor(field, definition_map)
-
-      [
-        field_id: field.id,
-        field_name: Name.field_name(field.name),
-        field_repeated: sparse_repeated?(field),
-        field_decode: sparse_decode_function(field, definition_map),
-        field_skip_repeated: skip_repeated?,
-        field_skip_bytes: skip_bytes?,
-        field_skip: skip
-      ]
-    end
-
-    defp skip_descriptor(%{array?: true, type: "byte"}, _definition_map),
-      do: {false, true, :kiwi_skip_bytes_value}
-
-    defp skip_descriptor(%{array?: true} = field, definition_map) do
-      {_repeated?, _bytes?, skip} = skip_descriptor(%{field | array?: false}, definition_map)
-      {true, false, skip}
-    end
-
-    defp skip_descriptor(%{type: type}, definition_map),
-      do: {false, false, Skip.Descriptor.scalar_function(type, definition_map)}
-
-    defp sparse_function_name(name),
-      do: Identifier.atom!("decode_sparse_#{Name.rust_identifier(name)}_from_decoder")
-
-    defp descriptor_scalar_function(%{type: type}, definition_map) do
-      cond do
-        KiwiCodec.PrimitiveType.name?(type) ->
-          ["kiwi_sparse_", type, "_value"]
-
-        Map.has_key?(definition_map, type) ->
-          ["decode_sparse_", Name.rust_identifier(type), "_from_decoder"]
-      end
-    end
-
-    defp module_name(module_prefix, name), do: "Elixir.#{module_prefix}.#{name}"
   end
 end

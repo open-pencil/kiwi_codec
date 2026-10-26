@@ -14,8 +14,8 @@ if Code.ensure_loaded?(RustQ) do
     is available. [Native decoders](native-decoders.md) covers each feature.
     """
 
-    alias KiwiCodec.RustlerGenerator.Definition
     alias KiwiCodec.RustlerGenerator.Entrypoint
+    alias KiwiCodec.RustlerGenerator.Full
     alias KiwiCodec.RustlerGenerator.Records
     alias KiwiCodec.RustlerGenerator.Selection
     alias KiwiCodec.RustlerGenerator.Skip
@@ -25,7 +25,7 @@ if Code.ensure_loaded?(RustQ) do
     alias RustQ.Rust
     alias RustQ.Rust.AST.Builder, as: A
 
-    @type entrypoint :: Entrypoint.entrypoint()
+    @type entrypoint :: {atom() | String.t(), String.t()}
 
     @doc """
     Returns a complete Rust source file for generated Rustler decoders.
@@ -52,10 +52,8 @@ if Code.ensure_loaded?(RustQ) do
         definition. For `{:nif_stubs, module}`, the module must expose `stubs/0`.
       * `:module_prefix` - Elixir module prefix for decoded structs.
       * `:decoder` - Rust path imported as `Decoder`. Defaults to
-        `"crate::runtime::Decoder"`.
-      * `:decoder_sources` - Rust source file or files that define the imported
-        `Decoder`, read for which of its methods return a `NifResult`. Defaults to
-        the reference `Decoder`; pass yours when its signatures differ.
+        `"crate::runtime::Decoder"`. Its methods have the signatures
+        `KiwiCodec.RustlerGenerator.Decoder` lists.
       * `:features` - decoder families to generate. Defaults to `[:full]`.
         Use `:sparse` and `:skip` for generic sparse map decoders and skip
         helpers used by projection-oriented native backends, and `:records` for
@@ -65,13 +63,20 @@ if Code.ensure_loaded?(RustQ) do
         not define: `:error` (default) rejects the data; `:runtime_schema` skips
         them using a schema read with the data. See
         `KiwiCodec.RustlerGenerator.UnknownFields` for the `Decoder` contract.
-      * `:sparse_messages` - sparse message generation strategy. Defaults to
-        `:match`. Use `:descriptor` to generate compact descriptor-backed sparse
-        message decoders and benchmark before adopting on hot schemas.
 
     """
     @spec source(Schema.t(), keyword()) :: String.t()
     def source(%Schema{} = schema, opts) do
+      opts =
+        Keyword.validate!(opts, [
+          :definitions,
+          :module_prefix,
+          entrypoints: [],
+          decoder: "crate::runtime::Decoder",
+          features: [:full],
+          unknown_fields: :error
+        ])
+
       [source_prelude(opts), generated_fragments(schema, opts)]
       |> List.flatten()
       |> Enum.map_join("\n\n", &Rust.to_fragment/1)
@@ -79,49 +84,27 @@ if Code.ensure_loaded?(RustQ) do
     end
 
     defp generated_fragments(%Schema{} = schema, opts) do
-      entrypoints = opts |> Keyword.get(:entrypoints, []) |> normalize_entrypoints(schema)
-      definitions = Keyword.get(opts, :definitions, inferred_definitions(entrypoints))
+      entrypoints = normalize_entrypoints(opts[:entrypoints], schema)
+      definitions = opts[:definitions] || inferred_definitions(entrypoints)
       module_prefix = Keyword.fetch!(opts, :module_prefix)
 
       definition_map = Selection.definition_map(schema)
       selected = Selection.definitions(schema, definitions, definition_map)
 
-      features = Keyword.get(opts, :features, [:full])
-
       [
         Splice.rustler_helpers(opts),
-        feature_fragments(features, selected, module_prefix, definition_map, opts),
+        feature_fragments(opts[:features], selected, module_prefix, definition_map),
         Entrypoint.fragments(entrypoints)
       ]
     end
 
-    defp feature_fragments(features, selected, module_prefix, definition_map, opts) do
-      shared_sparse_skip? =
-        :sparse in features and :skip in features and
-          Keyword.get(opts, :sparse_messages, :match) == :descriptor
-
+    defp feature_fragments(features, selected, module_prefix, definition_map) do
       Enum.flat_map(features, fn
-        :full ->
-          Definition.fragments(selected, module_prefix, definition_map)
-
-        :sparse ->
-          Sparse.fragments(selected, module_prefix, definition_map,
-            full?: :full in features,
-            message_mode:
-              if(shared_sparse_skip?,
-                do: :descriptor_with_skip,
-                else: Keyword.get(opts, :sparse_messages, :match)
-              )
-          )
-
-        :records ->
-          Records.fragments(selected, module_prefix)
-
-        :skip ->
-          Skip.fragments(selected, definition_map, messages?: not shared_sparse_skip?)
-
-        feature ->
-          raise ArgumentError, "unknown Rustler generator feature #{inspect(feature)}"
+        :full -> Full.fragments(selected, module_prefix, definition_map)
+        :sparse -> Sparse.fragments(selected, module_prefix, definition_map, :skip in features)
+        :skip -> Skip.fragments(selected, definition_map, :sparse in features)
+        :records -> Records.fragments(selected, module_prefix)
+        feature -> raise ArgumentError, "unknown Rustler generator feature #{inspect(feature)}"
       end)
     end
 
@@ -190,13 +173,11 @@ if Code.ensure_loaded?(RustQ) do
     end
 
     defp source_prelude(opts) do
-      decoder = Keyword.get(opts, :decoder, "crate::runtime::Decoder")
-
       [
         A.use([:rustler, :types, :atom, :Atom]),
         A.use({[:rustler], [:Binary, :Encoder, :Env, :Error, :NifResult, :Term]}),
         A.use({[:std, :sync], [:OnceLock]}),
-        A.use(decoder)
+        A.use(opts[:decoder])
       ]
     end
   end

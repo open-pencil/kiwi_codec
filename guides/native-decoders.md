@@ -58,9 +58,8 @@ values as atoms:
 ```
 
 Sparse and skip decoders together let native code read some fields and skip the
-rest without building terms for them. `sparse_messages: :descriptor` generates
-smaller sparse message decoders that share their field tables with skip
-decoders; measure before choosing it for hot schemas.
+rest without building terms for them; generated together, a message's sparse
+and skip decoders share one table of its fields.
 
 Records are decoded values Rust code can work with before deciding what to
 return. `kiwi_encode_record(env, &record)` encodes one as the sparse map the
@@ -118,17 +117,8 @@ The generated code reads with a `Decoder<'a>` the crate provides, imported from
 `KiwiCodec.RustlerGenerator.Decoder` lists the methods each feature uses and
 ships `decoder.rs`, a complete one to copy into the crate.
 
-RustQ reads the `Decoder`'s method signatures to know which reads return a
-`NifResult` and need `?`. A `Decoder` whose signatures differ from the reference
-one is passed with `:decoder_sources`:
-
-```elixir
-KiwiCodec.RustlerGenerator.source(schema,
-  entrypoints: ["Node"],
-  module_prefix: "MyApp.Schema",
-  decoder_sources: ["native/my_nif/src/runtime.rs"]
-)
-```
+RustQ reads the reference `Decoder`'s method signatures to know which reads
+return a `NifResult` and need `?`, so a crate's own `Decoder` keeps them.
 
 ## Rustler versions
 

@@ -54,6 +54,50 @@ pub struct KiwiRecordVariant {
     pub name: &'static str,
 }
 
+/// Declares a schema's records from one row per definition, in definition order:
+///
+///     NodeChange NODE_CHANGE 12 2 "NodeChange" "Elixir.Example.NodeChange"
+///         [GUID 1 "guid" 3 false; ...] [];
+///
+/// names the definition's constants' type and index constant, its index and kind, its name and
+/// Elixir module, then its fields (constant, id, key, type index, array) and enum variants
+/// (constant, value, atom). It expands to the definition table the runtime reads, and the
+/// `kiwi_record_definitions` and `kiwi_records` constants naming each definition, field, and
+/// enum value.
+macro_rules! kiwi_records {
+    ($($type:ident $definition:ident $index:literal $kind:literal $name:literal $module:literal
+        [$($field:ident $id:literal $key:literal $type_index:literal $array:literal;)*]
+        [$($variant:ident $value:literal $atom:literal;)*];)*) => {
+        static KIWI_RECORD_DEFINITIONS: &[KiwiRecordDefinition] = &[$(KiwiRecordDefinition {
+            kind: $kind,
+            name: $name,
+            module: $module,
+            fields: &[$(KiwiRecordField {
+                id: $id,
+                name: $key,
+                type_index: $type_index,
+                array: $array,
+            }),*],
+            variants: &[$(KiwiRecordVariant { value: $value, name: $atom }),*],
+        }),*];
+
+        pub mod kiwi_record_definitions {
+            $(pub const $definition: u32 = $index;)*
+        }
+
+        pub mod kiwi_records {
+            $(
+                pub struct $type {}
+
+                impl $type {
+                    $(pub const $field: u32 = $id;)*
+                    $(pub const $variant: u32 = $value;)*
+                }
+            )*
+        }
+    };
+}
+
 const KIWI_RECORD_ENUM: u8 = 0;
 const KIWI_RECORD_STRUCT: u8 = 1;
 const KIWI_RECORD_BYTE: i32 = !1;

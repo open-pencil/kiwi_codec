@@ -110,7 +110,7 @@ in Rust what is too large or too hot for Elixir. It needs
 add it where you generate:
 
 ```elixir
-{:rustq, "~> 1.0.0-rc.19", only: [:dev, :test], runtime: false}
+{:rustq, "~> 1.0.0-rc.21", only: [:dev, :test], runtime: false}
 ```
 
 Then generate from `rustq.exs`, and let `mix rustq.gen` write the file and

@@ -31,20 +31,23 @@ boundary rather than by fully expanding every decoder body.
 The generator is organized as a small pipeline:
 
 1. Schema definitions are parsed and selected by `KiwiCodec.RustlerGenerator`.
-2. Definition-specific modules (`Definition`, `Sparse`, and `Skip`) derive
-   semantic field metadata and field expressions from the schema.
-3. `KiwiCodec.RustlerGenerator.DecoderMacro`, for full decoders, and the
-   `Sparse` and `Skip` modules lower that metadata to compact Rust macro
-   invocations such as `kiwi_message_decoder!`, `kiwi_sparse_struct_decoder!`,
-   and `kiwi_skip_message_decoder!`.
-4. `KiwiCodec.RustlerGenerator.Splice` selects the shared Rust macro definitions
-   and helper functions consumed by those invocations. The full, sparse, and
-   skip helper modules author those macros with RustQ `defrustmacro`, `defrust`,
-   type metadata, and method metadata read from the `Decoder` source: the
-   reference `decoder.rs` beside `KiwiCodec.RustlerGenerator.Decoder`, or the
-   caller's `decoder_sources:`.
-5. `KiwiCodec.RustlerGenerator.Entrypoint` emits Rustler NIF entrypoints with
-   RustQ `defnif`, where the wrapper control flow is small and readable.
+2. One generator per feature, `Full`, `Sparse`, `Skip`, and `Records`, turns each
+   definition into a call to a compact Rust macro, such as
+   `kiwi_message_decoder!`, `kiwi_sparse_struct_decoder!`, or
+   `kiwi_skip_message_decoder!`, with a row per field. `Field` says how a field
+   is read or skipped, and `Name` names every generated function.
+3. Helper modules define those macros and the functions they call, with RustQ
+   `defrustmacro` and `defrust` typed against the reference `decoder.rs` beside
+   `KiwiCodec.RustlerGenerator.Decoder`: `Values` for what full and sparse
+   decoders share, `Full.Helpers`, `Sparse.Helpers`, and `Skip.Helpers` for
+   each feature, and `Sparse.Messages`, `Skip.Messages`, or
+   `Sparse.SkipMessages` for messages, depending on which features are
+   generated together. `Primitive` defines the readers and skippers of each
+   primitive type from one table of `Decoder` methods.
+4. `KiwiCodec.RustlerGenerator.Splice` includes each needed helper module whole,
+   through its `__rustq_items__/0`.
+5. `KiwiCodec.RustlerGenerator.Entrypoint` emits a NIF per entrypoint calling
+   `kiwi_decode_binary` with the definition's decoder.
 
 This split keeps schema logic in Elixir while avoiding thousands of repeated
 expanded Rust function bodies.
@@ -55,8 +58,9 @@ cache. They are ordinary Rust APIs, documented for the Rust code that uses
 them, rather than repetitive decoder shapes. The record runtime and atom cache
 are named after the modules that provide them, `templates/records.rs` for
 `records.ex`, so RustQ knows their signatures and RustQ code elsewhere names the
-module rather than the file. `UnknownFields` emits the runtime schema only in
-one mode, so it reads that file itself.
+module rather than the file, and so is the runtime schema,
+`templates/unknown_field_runtime_schema.rs` for
+`unknown_field_runtime_schema.ex`, which `UnknownFields` includes in one mode.
 
 ### Compact RustQ macro boundary
 

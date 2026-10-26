@@ -19,24 +19,16 @@ if Code.ensure_loaded?(RustQ) do
     struct the compiled decoders read is not supported.
     """
 
-    alias RustQ.Meta.AST, as: MetaAST
     alias RustQ.Type, as: R
-
-    @runtime_schema_template Path.expand("templates/unknown_field_runtime_schema.rs", __DIR__)
-    @external_resource @runtime_schema_template
-
-    @type mode :: :error | :runtime_schema
 
     @doc """
     Returns the Rust items implementing `mode`.
     """
-    @spec fragments(mode()) :: [RustQ.Rust.Fragment.t()]
-    def fragments(:error), do: MetaAST.functions!(__MODULE__, [:kiwi_unknown_field])
+    @spec fragments(:error | :runtime_schema) :: [RustQ.Rust.Fragment.t()]
+    def fragments(:error), do: __rustq_items__()
 
-    def fragments(:runtime_schema) do
-      source = @runtime_schema_template |> File.read!() |> String.trim_trailing()
-      [RustQ.Rust.fragment(:item, source)]
-    end
+    def fragments(:runtime_schema),
+      do: KiwiCodec.RustlerGenerator.UnknownFieldRuntimeSchema.__rustq_items__()
 
     def fragments(mode) do
       raise ArgumentError,

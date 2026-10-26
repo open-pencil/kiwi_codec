@@ -1,49 +1,56 @@
 if Code.ensure_loaded?(RustQ) do
   defmodule KiwiCodec.RustlerGenerator.Entrypoint do
+    use RustQ.Meta,
+      rust_sources: [KiwiCodec.RustlerGenerator.Decoder.source()],
+      callable_modules: [KiwiCodec.RustlerGenerator.Values]
+
     @moduledoc """
-    Generates Rustler NIF entrypoint items for Kiwi decoders.
+    Generates NIFs decoding a binary as one definition, which `kiwi_decode_binary` does with
+    the definition's full decoder, rejecting trailing bytes.
     """
 
+    require RustQ.Rust.AST.ItemBuilder, as: I
+
     alias KiwiCodec.RustlerGenerator.Name
-    alias RustQ.Meta.AST, as: MetaAST
-    alias RustQ.Rust.Identifier
+    alias RustQ.Rust.AST.Builder, as: A
+    alias RustQ.Type, as: R
 
-    @type entrypoint :: {atom() | String.t(), String.t()}
+    @doc "`kiwi_decode_binary`, and a NIF for each `{nif_name, definition_name}`."
+    @spec fragments([{atom() | String.t(), String.t()}]) :: [RustQ.Rust.Fragment.t()]
+    def fragments([]), do: []
+    def fragments(entrypoints), do: __rustq_items__() ++ Enum.map(entrypoints, &nif/1)
 
-    @spec fragments([entrypoint()]) :: [RustQ.Rust.Fragment.t()]
-    def fragments(entrypoints), do: Enum.map(entrypoints, &item/1)
-
-    defp item({nif_name, definition_name}) do
-      module = generated_module!(nif_name, definition_name)
-      MetaAST.function!(module, Identifier.atom!(to_string(nif_name)))
+    defp nif({nif_name, definition_name}) do
+      I.function nif_name,
+        args: [env: "Env<'a>", bytes: "Binary"],
+        returns: "NifResult<Term<'a>>",
+        lifetimes: [:a],
+        attrs: [A.nif_attr(schedule: "DirtyCpu")] do
+        A.return_stmt(
+          A.call(:kiwi_decode_binary, [
+            :env,
+            :bytes,
+            A.path(Name.decoder_function(definition_name))
+          ])
+        )
+      end
     end
 
-    defp generated_module!(nif_name, definition_name) do
-      nif_name = Identifier.atom!(to_string(nif_name))
-      decoder_name = Name.decoder_function(definition_name)
+    @spec kiwi_decode_binary(
+            R.path(:Env, R.lifetime(:a)),
+            R.path(:Binary),
+            R.path(:KiwiDecodeFn)
+          ) :: R.nif_result(term())
+    defrust kiwi_decode_binary(env, bytes, decode) do
+      decoder = Decoder.new(bytes.as_slice())
 
-      module =
-        Module.concat([
-          KiwiCodec.RustlerGenerator.Generated,
-          "Entrypoint#{nif_name}#{:erlang.phash2(definition_name)}"
-        ])
+      case decode(env, mut_ref(decoder)) do
+        {:ok, term} ->
+          decoder.finish()
+          {:ok, term}
 
-      if Code.ensure_loaded?(module) do
-        module
-      else
-        Module.create(
-          module,
-          quote do
-            use RustQ.Meta
-            alias RustQ.Type, as: R
-            import KiwiCodec.RustlerGenerator.DecoderMacro, only: [entrypoint: 2]
-
-            entrypoint(unquote(nif_name), unquote(decoder_name))
-          end,
-          Macro.Env.location(__ENV__)
-        )
-
-        module
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end

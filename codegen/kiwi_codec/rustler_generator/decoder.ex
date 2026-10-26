@@ -22,7 +22,7 @@ if Code.ensure_loaded?(RustQ) do
         `read_string_value`.
 
     The generator reads the method signatures from `decoder.rs` to know which calls return a
-    `NifResult`. A decoder whose signatures differ is passed as `:decoder_sources`.
+    `NifResult`, so a crate's own `Decoder` keeps them.
     """
 
     @source Path.expand("decoder.rs", __DIR__)
@@ -31,14 +31,5 @@ if Code.ensure_loaded?(RustQ) do
     @doc "Returns the path of the reference `Decoder` source."
     @spec source() :: Path.t()
     def source, do: @source
-
-    @doc "Returns `decoder_sources`, or the reference `Decoder` source when there are none."
-    @spec sources([Path.t()] | Path.t()) :: [Path.t()]
-    def sources(decoder_sources) do
-      case List.wrap(decoder_sources) do
-        [] -> [@source]
-        sources -> sources
-      end
-    end
   end
 end

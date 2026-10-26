@@ -31,7 +31,7 @@ stays generic: product schemas, such as Figma's in
 ```elixir
 def deps do
   [
-    {:kiwi_codec, "~> 0.6.0"}
+    {:kiwi_codec, "~> 0.7.0"}
   ]
 end
 ```
@@ -110,7 +110,7 @@ in Rust what is too large or too hot for Elixir. It needs
 add it where you generate:
 
 ```elixir
-{:rustq, "~> 1.0.0-rc.17", only: [:dev, :test], runtime: false}
+{:rustq, "~> 1.0.0-rc.19", only: [:dev, :test], runtime: false}
 ```
 
 Then generate from `rustq.exs`, and let `mix rustq.gen` write the file and
